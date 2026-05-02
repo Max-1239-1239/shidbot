@@ -63,6 +63,7 @@ async fn main() {
             commands::scramble(),
             commands::reverse(),
             commands::customalert(),
+            commands::inactivityalert(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -89,7 +90,7 @@ async fn main() {
     let mut file_logger = FileLoggerBuilder::new();
     file_logger.enabled = true;
     file_logger = file_logger
-        .dir_path(Some("bot.logs".to_string()))
+        .dir_path(Some("logs".to_string()))
         .log_format(FileLoggerFormat::TEXT);
     
     ConfigBuilder::new()
@@ -109,8 +110,8 @@ async fn main() {
         })
         .options(options)
         .build();
-
-    let token = "MTM4OTMxNTk1MzQwMTI2NjIxNg.GnzMcK.Hwd_OZGgScoTURlnNQcldFEOmb_fHNFhaNLB2U";
+    
+    let token = "TOKEN";
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 

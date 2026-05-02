@@ -21,14 +21,13 @@ pub struct Config {
     muted: bool,
     shidbot_alert_active: bool,
     custom_alert_active: bool,
+    inactivity_alert_active: bool,
 }
 
 /// Get information about shidbot
 #[poise::command(prefix_command, track_edits, slash_command)]
 pub async fn about(
     ctx: Context<'_>,
-    #[description = "Self-explanatory"]
-    #[autocomplete = "poise::builtins::autocomplete_command"]
     command: Option<String>,
 ) -> Result<(), Error> {
     poise::builtins::help(
@@ -119,6 +118,7 @@ pub async fn mutelist(
         muted: current_read.muted,
         shidbot_alert_active: current_read.shidbot_alert_active,
         custom_alert_active: current_read.custom_alert_active,
+        inactivity_alert_active: current_read.inactivity_alert_active,
     };
     let json_data = serde_json::to_string_pretty(&config_file).unwrap();
     let mut file = File::create("config.json").await?;
@@ -145,6 +145,7 @@ pub async fn mute(
             muted: true,
             shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
+            inactivity_alert_active: current_read.inactivity_alert_active,
         };
         let json_data = serde_json::to_string_pretty(&config_file).unwrap();
         let mut file = File::create("config.json").await?;
@@ -156,6 +157,7 @@ pub async fn mute(
             muted: false,
             shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
+            inactivity_alert_active: current_read.inactivity_alert_active,
         };
         let json_data = serde_json::to_string_pretty(&config_file).unwrap();
         let mut file = File::create("config.json").await?;
@@ -184,6 +186,7 @@ pub async fn config(
                 muted: current_read.muted,
                 shidbot_alert_active: current_read.shidbot_alert_active,
                 custom_alert_active: current_read.custom_alert_active,
+                inactivity_alert_active: current_read.inactivity_alert_active,
             };
             let json_data = serde_json::to_string_pretty(&config_file).unwrap();
             let mut file = File::create("config.json").await?;
@@ -202,12 +205,13 @@ pub async fn shidbotalert(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
     loop {
-        let rand_duration = rand::thread_rng().gen_range(1..=604800);
+        let rand_duration = rand::thread_rng().gen_range(1..=604800); 
         task::sleep(Duration::from_secs(rand_duration)).await;
         let json_data = fs::read_to_string("config.json")?;
         let current_read: Config = serde_json::from_str(&json_data)?;
         if current_read.muted == false {
-            ctx.say("<@&1453436782627520777>").await?;
+            let channel = ctx.guild_channel().await.unwrap();
+            channel.say(&ctx.http(), "<@&1453436782627520777>").await?;
         }        
     }
 }
@@ -334,6 +338,7 @@ pub async fn customalert(
             muted: current_read.muted,
             shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: true,
+            inactivity_alert_active: current_read.inactivity_alert_active,
         };
         let json_data = serde_json::to_string_pretty(&config_file).unwrap();
         let mut file = File::create("config.json").await?;
@@ -346,6 +351,7 @@ pub async fn customalert(
             muted: current_read.muted,
             shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: false,
+            inactivity_alert_active: current_read.inactivity_alert_active,
         };
         let json_data = serde_json::to_string_pretty(&config_file).unwrap();
         let mut file = File::create("config.json").await?;
@@ -358,6 +364,7 @@ pub async fn customalert(
             muted: current_read.muted,
             shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: true,
+            inactivity_alert_active: current_read.inactivity_alert_active,
         };
         let json_data = serde_json::to_string_pretty(&config_file).unwrap();
         let mut file = File::create("config.json").await?;
@@ -416,5 +423,68 @@ pub async fn scramble(
 };
     let final_string = String::from_utf8(final_string).unwrap();
     ctx.say(final_string).await?;
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command, guild_only)] 
+pub async fn inactivityalert(
+    ctx: Context<'_>,
+    message: String,
+    cancel: Option<bool>
+) -> Result<(), Error> {
+    let ref_guild = ctx.guild_channel().await.unwrap();
+    let mut elapsed_min: u32 = 0;
+    if cancel != None {
+        let json_data = fs::read_to_string("config.json")?;
+        let current_read: Config = serde_json::from_str(&json_data)?;
+        let config_file = Config {
+            lunko_chance: current_read.lunko_chance,
+            mute_list: current_read.mute_list,
+            muted: current_read.muted,
+            shidbot_alert_active: current_read.shidbot_alert_active,
+            custom_alert_active: current_read.custom_alert_active,
+            inactivity_alert_active: false,
+        };
+        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
+        let mut file = File::create("config.json").await?;
+        file.write_all(json_data.as_bytes()).await?;
+    } else {
+        let json_data = fs::read_to_string("config.json")?;
+        let current_read: Config = serde_json::from_str(&json_data)?;
+        let config_file = Config {
+            lunko_chance: current_read.lunko_chance,
+            mute_list: current_read.mute_list,
+            muted: current_read.muted,
+            shidbot_alert_active: current_read.shidbot_alert_active,
+            custom_alert_active: current_read.custom_alert_active,
+            inactivity_alert_active: true,
+        };
+        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
+        let mut file = File::create("config.json").await?;
+        file.write_all(json_data.as_bytes()).await?;
+    };
+    let last_id = ref_guild.last_message_id.unwrap(); 
+    loop {
+        task::sleep(Duration::from_mins(10)).await; 
+        let json_data = fs::read_to_string("config.json")?;
+        let current_read: Config = serde_json::from_str(&json_data)?;
+        if current_read.inactivity_alert_active == false {
+            break;
+        }
+        let ref_guild = ctx.guild_channel().await.unwrap();
+        if ref_guild.last_message_id.unwrap() == last_id { 
+            elapsed_min = elapsed_min + 10;
+        } else {
+            ctx.rerun().await?;
+            break;
+        };
+        if elapsed_min >= 600 { 
+            ref_guild.say(&ctx.http(), &message).await?;
+            elapsed_min = 0;
+            continue;
+        } else {
+            continue;
+        };
+    }
     Ok(())
 }

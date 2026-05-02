@@ -1,6 +1,6 @@
 [package]
 name = "Shidbot"
-version = "0.1.0"
+version = "2.1.0"
 edition = "2024"
 
 [dependencies]
@@ -15,6 +15,5 @@ tracing-subscriber = "0.3.19"
 async-std = "1.13.2"
 chrono = "0.4.44"
 log = "0.4.29"
-simple-logging = "2.0.2"
 lumelog = "0.2.0"
 

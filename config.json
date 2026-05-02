@@ -10,5 +10,6 @@
   ],
   "muted": false,
   "shidbot_alert_active": false,
-  "custom_alert_active": false
+  "custom_alert_active": false,
+  "inactivity_alert_active": true
 }
