@@ -187,7 +187,7 @@ async fn event_handler(
             }
                 if message_content.contains("1239") {
                     let msg_length = message_content.len();
-                    if &new_message.content[(msg_length - 4)..(msg_length)] == "1239" && new_message.author.bot == false && new_message.content.len() <= 20{
+                    if &new_message.content[(msg_length - 4)..(msg_length)] == "1239" && new_message.author.bot == false && new_message.content.len() <= 32{
                         if new_message.guild_id != None {
                             let partial_guild = new_message.guild_id.unwrap().to_partial_guild(ctx.http.clone()).await?;
                             let member_edit = EditMember::new()

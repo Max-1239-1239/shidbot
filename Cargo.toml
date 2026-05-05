@@ -1,7 +1,7 @@
 [package]
 name = "Shidbot"
-version = "2.1.0"
-edition = "2026"
+version = "2.1.1"
+edition = "2024"
 
 [dependencies]
 env = "1.0.1"
