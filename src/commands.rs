@@ -430,6 +430,7 @@ pub async fn scramble(
 pub async fn inactivityalert(
     ctx: Context<'_>,
     message: String,
+    duration_minutes: u32,
     cancel: Option<bool>
 ) -> Result<(), Error> {
     let ref_guild = ctx.guild_channel().await.unwrap();
@@ -465,7 +466,7 @@ pub async fn inactivityalert(
     };
     let last_id = ref_guild.last_message_id.unwrap(); 
     loop {
-        task::sleep(Duration::from_mins(10)).await; 
+        task::sleep(Duration::from_mins(2)).await; 
         let json_data = fs::read_to_string("config.json")?;
         let current_read: Config = serde_json::from_str(&json_data)?;
         if current_read.inactivity_alert_active == false {
@@ -473,12 +474,12 @@ pub async fn inactivityalert(
         }
         let ref_guild = ctx.guild_channel().await.unwrap();
         if ref_guild.last_message_id.unwrap() == last_id { 
-            elapsed_min = elapsed_min + 10;
+            elapsed_min = elapsed_min + 2;
         } else {
             ctx.rerun().await?;
             break;
         };
-        if elapsed_min >= 600 { 
+        if elapsed_min >= duration_minutes { 
             ref_guild.say(&ctx.http(), &message).await?;
             elapsed_min = 0;
             continue;
