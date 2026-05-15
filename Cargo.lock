@@ -4,18 +4,17 @@ version = 4
 
 [[package]]
 name = "Shidbot"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "async-std",
  "chrono",
  "env",
- "log",
- "lumelog",
  "poise",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "serenity",
+ "time",
  "tokio",
  "tracing-subscriber",
 ]
@@ -324,15 +323,6 @@ dependencies = [
  "serde",
  "wasm-bindgen",
  "windows-link",
-]
-
-[[package]]
-name = "colored"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
-dependencies = [
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1219,17 +1209,6 @@ name = "lru-slab"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
-
-[[package]]
-name = "lumelog"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cec7210c0b808c2df7dc3b6da0c90d4fef8e7ee3fe49f01f445adde83dae7b9"
-dependencies = [
- "chrono",
- "colored",
- "once_cell",
-]
 
 [[package]]
 name = "memchr"

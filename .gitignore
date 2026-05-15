@@ -1,4 +1,3 @@
 /target
-/bot.logs
-/logs
+/bot.log
 /config.json

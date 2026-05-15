@@ -1,6 +1,6 @@
 [package]
 name = "Shidbot"
-version = "2.1.1"
+version = "2.2.0"
 edition = "2024"
 
 [dependencies]
@@ -14,6 +14,6 @@ tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = "0.3.19"
 async-std = "1.13.2"
 chrono = "0.4.44"
-log = "0.4.29"
-lumelog = "0.2.0"
+time = {version = "0.3.47", features = ["std", "formatting"]}
+
 
