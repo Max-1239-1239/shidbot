@@ -1,6 +1,24 @@
 #![warn(clippy::str_to_string)]
 
 mod commands;
+mod log {
+    use std::{fmt::Write as _, fs::{OpenOptions}, io::Write};
+    use ::time::{Error, UtcDateTime, format_description};
+
+    pub fn log_to_file(message: String) -> Result<(), Error>  {
+        let log_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("bot.log");
+        let mut log_message = String::new();
+        let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
+        let time = UtcDateTime::now();
+        let timestamp = time.format(&format)?;
+        let _ = write!(&mut log_message, "\n{timestamp}: {message}");
+        let _ = log_file.unwrap().write_all(&log_message.into_bytes());
+        Ok(())
+    }
+}
 
 use poise::{serenity_prelude as serenity};
 use rand::Rng;
@@ -13,7 +31,6 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{fs};
-use lumelog::{ConfigBuilder, FileLoggerBuilder, FileLoggerFormat, info};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -87,16 +104,6 @@ async fn main() {
         },
         ..Default::default()
     };
-    let mut file_logger = FileLoggerBuilder::new();
-    file_logger.enabled = true;
-    file_logger = file_logger
-        .dir_path(Some("logs".to_string()))
-        .log_format(FileLoggerFormat::TEXT);
-    
-    ConfigBuilder::new()
-        .file_logger_config(Some(file_logger))
-        .build()
-        .expect("Failed to init logging");
 
     let framework = poise::Framework::builder()
         .setup(move |ctx, ready, framework| {
@@ -111,7 +118,7 @@ async fn main() {
         .options(options)
         .build();
     
-    let token = "TOKEN";
+    let token = "MTM4OTMxNTk1MzQwMTI2NjIxNg.GnzMcK.Hwd_OZGgScoTURlnNQcldFEOmb_fHNFhaNLB2U";
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -197,7 +204,7 @@ async fn event_handler(
                             log.push_str("; content is \"");
                             log.push_str(&new_message.content);
                             log.push_str("\"");
-                            info!(&log);
+                            let _ = log::log_to_file(log);
                             partial_guild.edit_member(ctx.http.clone(), 739931053560430802, member_edit).await?;
                             let mut and_let_there_be = String::new();
                             and_let_there_be.push_str("and ");
