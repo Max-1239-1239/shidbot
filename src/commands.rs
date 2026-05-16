@@ -335,7 +335,7 @@ pub async fn whois(
 
 /// Start a shidbot alert for a specific user
 #[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn customalert_test(
+pub async fn customalert(
     ctx: Context<'_>,
     user: serenity::User,
     frequency: u64,

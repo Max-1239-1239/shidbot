@@ -81,7 +81,7 @@ async fn main() {
             commands::whothefuck(),
             commands::scramble(),
             commands::reverse(),
-            commands::customalert_test(),
+            commands::customalert(),
             commands::inactivityalert(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
