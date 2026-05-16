@@ -123,7 +123,6 @@ async fn main() {
     let mut token = String::new();
     let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token);
     println!("{}", token);
-    //let token = "MTM4OTMxNTk1MzQwMTI2NjIxNg.GnzMcK.Hwd_OZGgScoTURlnNQcldFEOmb_fHNFhaNLB2U";
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
