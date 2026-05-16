@@ -24,13 +24,10 @@ use poise::{serenity_prelude as serenity};
 use rand::Rng;
 use ::serenity::all::{CreateAttachment, CreateMessage, EditMember, EmojiId, ReactionType};
 use tokio::fs::File;
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{fmt::Write, io::Read, sync::Arc, time::Duration};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::{fs};
+use std::{fs, fs::File as TokenFile};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -45,13 +42,18 @@ pub struct Config {
     lunko_chance: u64,
     mute_list: Vec<serenity::UserId>,
     muted: bool,
+    shidbot_alert_active: bool,
+    custom_alert_active: bool,
+    inactivity_alert_active: bool,
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     match error {
         poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx, .. } => {
-            println!("Error in command `{}`: {:?}", ctx.command().name, error,);
+            let mut error_msg = String::new();
+            let _ = write!(&mut error_msg, "Error in command `{}`: {:?}", ctx.command().name, error,);
+            let _ = log::log_to_file(error_msg);
         }
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
@@ -79,7 +81,7 @@ async fn main() {
             commands::whothefuck(),
             commands::scramble(),
             commands::reverse(),
-            commands::customalert(),
+            commands::customalert_test(),
             commands::inactivityalert(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
@@ -109,6 +111,7 @@ async fn main() {
         .setup(move |ctx, ready, framework| {
             Box::pin(async move {
                 println!("Logged in as {}", ready.user.name);
+                let _ = log::log_to_file("Logged in".to_owned());
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data {
                     //
@@ -117,12 +120,14 @@ async fn main() {
         })
         .options(options)
         .build();
-    
-    let token = "MTM4OTMxNTk1MzQwMTI2NjIxNg.GnzMcK.Hwd_OZGgScoTURlnNQcldFEOmb_fHNFhaNLB2U";
+    let mut token = String::new();
+    let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token);
+    println!("{}", token);
+    //let token = "MTM4OTMxNTk1MzQwMTI2NjIxNg.GnzMcK.Hwd_OZGgScoTURlnNQcldFEOmb_fHNFhaNLB2U";
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
-    let client = serenity::ClientBuilder::new(token, intents)
+    let client = serenity::ClientBuilder::new(&token, intents)
         .framework(framework)
         .await;
 
@@ -199,18 +204,12 @@ async fn event_handler(
                             let partial_guild = new_message.guild_id.unwrap().to_partial_guild(ctx.http.clone()).await?;
                             let member_edit = EditMember::new()
                                 .nickname(new_message.content.clone());
-                            let mut log = "new name set by ".to_string();
-                            log.push_str(&new_message.id.to_string());
-                            log.push_str("; content is \"");
-                            log.push_str(&new_message.content);
-                            log.push_str("\"");
+                            let mut log = String::new();
+                            let _ = write!(&mut log, "New name set by {}: {}", new_message.author.id, new_message.content);
                             let _ = log::log_to_file(log);
                             partial_guild.edit_member(ctx.http.clone(), 739931053560430802, member_edit).await?;
                             let mut and_let_there_be = String::new();
-                            and_let_there_be.push_str("and ");
-                            and_let_there_be.push_str(&new_message.author.to_string());
-                            and_let_there_be.push_str(" said let there be: ");
-                            and_let_there_be.push_str(&new_message.content.clone());
+                            let _ = write!(&mut and_let_there_be, "and {} said let there be: {}", new_message.author.to_string(), new_message.content);
                             let content = CreateMessage::default()
                                 .content(and_let_there_be);
                             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();

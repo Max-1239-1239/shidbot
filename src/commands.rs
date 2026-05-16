@@ -7,7 +7,7 @@ use rand::Rng;
 use ::serenity::all::Colour;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use std::{fs};
+use std::{fmt::Write, fs};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use async_std::task::{self};
@@ -97,11 +97,8 @@ pub async fn echo(
     let permissions = ctx.partial_guild().await.unwrap().user_permissions_in(&channel, &member);
     if permissions.send_messages() == true {
         channel.say(&ctx.http(), &message).await?;
-        let mut log = "message echoed by ".to_string();
-        log.push_str(&ctx.author().id.to_string());
-        log.push_str("; content is \"");
-        log.push_str(&message);
-        log.push_str("\"");
+        let mut log = String::new();
+        let _ = write!(&mut log, "Message echoed by {}, content is: {}.", ctx.author().id, message);
         let _ = log::log_to_file(log);
         ctx.say("done").await?;
     } else {
@@ -247,11 +244,8 @@ pub async fn ban(
     if role_list.contains(&moderator_role) {
         ctx.partial_guild().await.unwrap().ban_with_reason(&ctx.http(), &target, 0, reason).await?;
         ctx.say("user banned").await?;
-        let mut log = "user banned by ".to_string();
-        log.push_str(&ctx.author().id.to_string());
-        log.push_str("; content is \"");
-        log.push_str(&target.id.to_string());
-        log.push_str("\"");
+        let mut log = String::new();
+        let _ = write!(&mut log, "User {} banned by {}.", target.id.to_string(), ctx.author().id,);
         let _ = log::log_to_file(log);
     } else {
         ctx.say("moderator only command").await?;
@@ -341,7 +335,7 @@ pub async fn whois(
 
 /// Start a shidbot alert for a specific user
 #[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn customalert(
+pub async fn customalert_test(
     ctx: Context<'_>,
     user: serenity::User,
     frequency: u64,
