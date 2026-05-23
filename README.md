@@ -4,7 +4,7 @@ Has a variety of commands ranging from shitposts to utilities.
   
 ## Running your own Shidbot
 
-I don't suggest doing it. But if you really want to:
+I don't suggest doing it. You'll need to make some code changes, as some things are hard-coded for Shidmark. But if you really want to:
 
 To start, build the source code using Cargo. Instructions for doing that can be found in Rust's documentation.  
   
@@ -33,5 +33,4 @@ This is the format for the JSON file. This will start the bot off with a spawn c
 
 
 ## TODO
-- Remove `shidbot_alert_active` from the config file.
 - Figure out why `/customalert` stops after a varying period. 
