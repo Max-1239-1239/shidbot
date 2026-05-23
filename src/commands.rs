@@ -484,7 +484,7 @@ pub async fn shinx(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
     let mut search: Vec<String> = SearchBuilder::default() 
-        .location("/home/max/Pictures/shinx")
+        .location("home/botpi/shinx")
         .custom_filter(|dir| dir.metadata().unwrap().is_file())
         .build()
         .collect();
