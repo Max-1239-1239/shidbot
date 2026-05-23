@@ -20,9 +20,10 @@ mod log {
     }
 }
 
+use async_std::task;
 use poise::{serenity_prelude as serenity};
 use rand::Rng;
-use ::serenity::all::{CreateAttachment, CreateMessage, EditMember, EmojiId, ReactionType};
+use ::serenity::{all::{CreateAttachment, CreateMessage, EditMember, EmojiId, ReactionType}, model::{guild::PartialGuild, id::ChannelId}};
 use tokio::fs::File;
 use std::{fmt::Write, io::Read, sync::Arc, time::Duration};
 use serde::{Deserialize, Serialize};
@@ -42,7 +43,6 @@ pub struct Config {
     lunko_chance: u64,
     mute_list: Vec<serenity::UserId>,
     muted: bool,
-    shidbot_alert_active: bool,
     custom_alert_active: bool,
     inactivity_alert_active: bool,
 }
@@ -76,13 +76,13 @@ async fn main() {
             commands::mute(),
             commands::config(),
             commands::ban(),
-            commands::shidbotalert(),
             commands::whois(),
             commands::whothefuck(),
             commands::scramble(),
             commands::reverse(),
             commands::customalert(),
             commands::inactivityalert(),
+            commands::shinx(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -122,7 +122,6 @@ async fn main() {
         .build();
     let mut token = String::new();
     let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token);
-    println!("{}", token);
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -140,6 +139,24 @@ async fn event_handler(
     _data: &Data,
 ) -> Result<(), Error> {
     match event {
+        serenity::FullEvent::Ready { data_about_bot: _ } => {
+            loop {
+                let rand_duration = rand::thread_rng().gen_range(1..=604800); 
+                task::sleep(Duration::from_secs(rand_duration)).await;
+                let json_data = fs::read_to_string("config.json")?;
+                let current_read: Config = serde_json::from_str(&json_data)?;
+                if current_read.muted == false {
+                    let channel = {
+                        let guild = PartialGuild::get(&ctx.http, 765689692851011595).await.unwrap();
+                        let channelid = ChannelId::new(1453439203101900944);
+                        let channels = guild.channels(&ctx.http).await.unwrap();
+                        let channel = channels[&channelid].clone();
+                        channel
+                    };
+                    channel.say(&ctx.http, "<@&1453436782627520777>").await?;
+                }        
+            }
+        }
         serenity::FullEvent::Message { new_message } => {
                 let message_content = new_message.content.to_lowercase();
                 let json_data = fs::read_to_string("config.json")?;
