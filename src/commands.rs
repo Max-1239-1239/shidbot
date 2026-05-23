@@ -3,7 +3,7 @@ use serenity::CreateAttachment;
 use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
-use rand::Rng;
+use rand::{Rng, seq::SliceRandom};
 use ::serenity::all::Colour;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use async_std::task::{self};
 use std::time::{Duration, SystemTime};
+use rust_search::{FilterExt, SearchBuilder};
 
 mod log {
     use std::{fmt::Write as _, fs::{OpenOptions}, io::Write};
@@ -37,7 +38,6 @@ pub struct Config {
     lunko_chance: u64,
     mute_list: Vec<serenity::UserId>,
     muted: bool,
-    shidbot_alert_active: bool,
     custom_alert_active: bool,
     inactivity_alert_active: bool,
 }
@@ -131,7 +131,6 @@ pub async fn mutelist(
         lunko_chance: current_read.lunko_chance,
         mute_list: new_list,
         muted: current_read.muted,
-        shidbot_alert_active: current_read.shidbot_alert_active,
         custom_alert_active: current_read.custom_alert_active,
         inactivity_alert_active: current_read.inactivity_alert_active,
     };
@@ -158,7 +157,6 @@ pub async fn mute(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: true,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
             inactivity_alert_active: current_read.inactivity_alert_active,
         };
@@ -170,7 +168,6 @@ pub async fn mute(
             lunko_chance: current_read.lunko_chance,
             mute_list: config_file.mute_list,
             muted: false,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
             inactivity_alert_active: current_read.inactivity_alert_active,
         };
@@ -199,7 +196,6 @@ pub async fn config(
                 lunko_chance: new_spawn_chance.unwrap(),
                 mute_list: current_read.mute_list,
                 muted: current_read.muted,
-                shidbot_alert_active: current_read.shidbot_alert_active,
                 custom_alert_active: current_read.custom_alert_active,
                 inactivity_alert_active: current_read.inactivity_alert_active,
             };
@@ -212,23 +208,6 @@ pub async fn config(
         ctx.say("only bot admins can change this").await?;
     }
     Ok(())
-}
-
-/// Start the shidbot alert
-#[poise::command(prefix_command, slash_command)]
-pub async fn shidbotalert(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
-    loop {
-        let rand_duration = rand::thread_rng().gen_range(1..=604800); 
-        task::sleep(Duration::from_secs(rand_duration)).await;
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        if current_read.muted == false {
-            let channel = ctx.guild_channel().await.unwrap();
-            channel.say(&ctx.http(), "<@&1453436782627520777>").await?;
-        }        
-    }
 }
 
 ///Ban a user [Mod Only]
@@ -348,7 +327,6 @@ pub async fn customalert(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: current_read.muted,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: true,
             inactivity_alert_active: current_read.inactivity_alert_active,
         };
@@ -361,7 +339,6 @@ pub async fn customalert(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: current_read.muted,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: false,
             inactivity_alert_active: current_read.inactivity_alert_active,
         };
@@ -374,7 +351,6 @@ pub async fn customalert(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: current_read.muted,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: true,
             inactivity_alert_active: current_read.inactivity_alert_active,
         };
@@ -455,7 +431,6 @@ pub async fn inactivityalert(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: current_read.muted,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
             inactivity_alert_active: false,
         };
@@ -469,7 +444,6 @@ pub async fn inactivityalert(
             lunko_chance: current_read.lunko_chance,
             mute_list: current_read.mute_list,
             muted: current_read.muted,
-            shidbot_alert_active: current_read.shidbot_alert_active,
             custom_alert_active: current_read.custom_alert_active,
             inactivity_alert_active: true,
         };
@@ -500,5 +474,38 @@ pub async fn inactivityalert(
             continue;
         };
     }
+    Ok(())
+}
+
+
+/// shinx
+#[poise::command(slash_command, prefix_command)] 
+pub async fn shinx(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    let mut search: Vec<String> = SearchBuilder::default() 
+        .location("/home/botpi/shinx")
+        .custom_filter(|dir| dir.metadata().unwrap().is_file())
+        .build()
+        .collect();
+    if search.len() > 0 {
+        let shuffled_shinxes = {
+        let mut rng = rand::thread_rng();
+            search.shuffle(&mut rng);
+            search.clone()
+        };
+        let attachment = {
+            let shinx = shuffled_shinxes[0].clone();
+            println!("{:?}", shinx);
+            let file = File::open(&shinx).await?;
+            let attachment = CreateAttachment::file(&file, &shinx).await?; 
+            attachment    
+        };
+        let content = CreateReply::default()
+            .attachment(attachment);
+        ctx.send(content).await?;
+    } else {
+        ctx.say("couldn't find any shinx images to send :(").await?;
+    };
     Ok(())
 }
