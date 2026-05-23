@@ -33,6 +33,7 @@ use std::{fs, fs::File as TokenFile};
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
+#[derive(Debug)]
 pub struct Data {
     //
 }
@@ -83,6 +84,7 @@ async fn main() {
             commands::customalert(),
             commands::inactivityalert(),
             commands::shinx(),
+            commands::shinx_collection(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
