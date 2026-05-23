@@ -415,7 +415,7 @@ pub async fn scramble(
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command, guild_only)] 
+#[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn inactivityalert(
     ctx: Context<'_>,
     message: String,
@@ -506,6 +506,35 @@ pub async fn shinx(
         ctx.send(content).await?;
     } else {
         ctx.say("couldn't find any shinx images to send :(").await?;
+    };
+    Ok(())
+}
+
+#[poise::command(context_menu_command = "Add to shinx collection")]
+pub async fn shinx_collection(
+    ctx: Context<'_>, 
+    msg: serenity::Message
+) -> Result<(), Error> {
+    let attachments = msg.clone().attachments;
+    if attachments.len() < 1 {
+        msg.reply(ctx, "i can't find an image in this message").await?;
+    } else {
+        for attachment in &msg.attachments {
+            let content = match attachment.download().await {
+                Ok(content) => content,
+                Err(why) => {
+                    msg.reply(ctx, "something went wrong when downloading").await?;
+                    let _ = log::log_to_file(why.to_string());
+                    return Ok(());
+                }
+            };
+            let file_path = format!("/home/botpi/shinx/{}", &attachment.filename);
+            let mut file = File::create(file_path.clone()).await?;
+            let _ = file.write_all(&content).await; 
+            let log_msg = format!("new image added to the folder by {}, path is: {}", ctx.author(), file_path);
+            let _ = log::log_to_file(log_msg);
+        }
+        msg.reply(ctx, "saved!").await?;
     };
     Ok(())
 }
