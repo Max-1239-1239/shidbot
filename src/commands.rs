@@ -510,10 +510,6 @@ pub async fn shinx(
         .build()
         .collect();
     if search.len() > 0 {
-        if &search[0] == "/home/botpi/shinx" {
-            ctx.rerun().await?;
-            return Ok(())
-        }
         let shuffled_shinxes = {
         let mut rng = rand::thread_rng();
             search.shuffle(&mut rng);
