@@ -85,6 +85,7 @@ async fn main() {
             commands::inactivityalert(),
             commands::shinx(),
             commands::shinx_collection(),
+            commands::unshid(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),

@@ -4,7 +4,7 @@ use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
 use rand::{Rng, seq::SliceRandom};
-use ::serenity::all::Colour;
+use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::ChannelId}};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use std::{fmt::Write, fs};
@@ -221,11 +221,26 @@ pub async fn ban(
     let id: u64 = 869998894644351056;
     let moderator_role = ctx.guild_id().unwrap().role(ctx.http(), serenity::RoleId::from(id)).await?;
     if role_list.contains(&moderator_role) {
+        let target_is_mod = {
+            let role_list = target.clone().member.unwrap().roles;
+            if role_list.contains(&moderator_role.id) {
+                true
+            } else {
+                false
+            }
+        };
+        if target_is_mod == true {
+            ctx.say("this command cannot be used on moderators").await?;
+            let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a moderator! Target: {}", ctx.author().id, target.id.to_string());
+            let _ = log::log_to_file(log_msg);
+            return Ok(());
+        } else {
         ctx.partial_guild().await.unwrap().ban_with_reason(&ctx.http(), &target, 0, reason).await?;
         ctx.say("user banned").await?;
         let mut log = String::new();
         let _ = write!(&mut log, "User {} banned by {}.", target.id.to_string(), ctx.author().id,);
         let _ = log::log_to_file(log);
+        }
     } else {
         ctx.say("moderator only command").await?;
     };
@@ -368,11 +383,17 @@ pub async fn customalert(
             break;
         }
         if current_read.muted == false {
+            let channel = {
+                let guild = PartialGuild::get(&ctx.http(), 765689692851011595).await.unwrap();
+                let channelid = ChannelId::new(1316842131427688590);
+                let channels = guild.channels(&ctx.http()).await.unwrap();
+                let channel = channels[&channelid].clone();
+                channel
+            };
             let mut ping_string = "<@".to_string();
             let user_id_string = user.id.get().to_string();
             ping_string.push_str(&user_id_string);
             ping_string.push_str(">");
-            let channel = ctx.guild_channel().await.unwrap();
             channel.say(&ctx.http(), ping_string).await?;
         }        
     }    
@@ -489,6 +510,10 @@ pub async fn shinx(
         .build()
         .collect();
     if search.len() > 0 {
+        if &search[0] == "/home/botpi/shinx" {
+            ctx.rerun().await?;
+            return Ok(())
+        }
         let shuffled_shinxes = {
         let mut rng = rand::thread_rng();
             search.shuffle(&mut rng);
@@ -505,7 +530,7 @@ pub async fn shinx(
             .attachment(attachment);
         ctx.send(content).await?;
     } else {
-        ctx.say("couldn't find any shinx images to send :(").await?;
+        ctx.say("couldn't find any shinx images to send <:shinx_dizzy:1387115203162013817>").await?;
     };
     Ok(())
 }
@@ -536,5 +561,34 @@ pub async fn shinx_collection(
         }
         msg.reply(ctx, "saved!").await?;
     };
+    Ok(())
+}
+
+/// Purge shidbot messages [Mod only]
+#[poise::command(slash_command, prefix_command, guild_only)] 
+pub async fn unshid(
+    ctx: Context<'_>,
+    messages_to_search: u8,
+) -> Result<(), Error> {
+    if messages_to_search > 100 {
+        ctx.say("this is limited to 100 messages, try again").await?;
+        return Ok(())
+    }
+    let channel_id = ctx.channel_id();
+    let target_messages = {
+        let builder = GetMessages::new().limit(messages_to_search);
+        let messages = channel_id.messages(&ctx.http(), builder).await?;
+        let mut targets = Vec::new();
+        for message in messages {
+            if message.author.id == 1389315953401266216 {
+                targets.push(message)
+            }
+        };
+        targets
+    };
+    for message in target_messages {
+        message.delete(&ctx.http()).await?;
+    }
+    ctx.say("done!").await?;
     Ok(())
 }
