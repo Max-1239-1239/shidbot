@@ -2,7 +2,7 @@
 
 mod commands;
 mod log {
-    use std::{fmt::Write as _, fs::{OpenOptions}, io::Write};
+    use std::{fs::{OpenOptions}, io::Write};
     use ::time::{Error, UtcDateTime, format_description};
 
     pub fn log_to_file(message: String) -> Result<(), Error>  {
@@ -10,11 +10,13 @@ mod log {
             .create(true)
             .append(true)
             .open("bot.log");
-        let mut log_message = String::new();
-        let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
-        let time = UtcDateTime::now();
-        let timestamp = time.format(&format)?;
-        let _ = write!(&mut log_message, "\n{timestamp}: {message}");
+        let timestamp = {
+            let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
+            let time = UtcDateTime::now();
+            let timestamp = time.format(&format)?;
+            timestamp
+        };
+        let log_message = format!("\n{timestamp}: {message}");
         let _ = log_file.unwrap().write_all(&log_message.into_bytes());
         Ok(())
     }
@@ -58,7 +60,8 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
         }
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
-                println!("Error while handling error: {}", e)
+                let err_msg = format!("Error while handling error: {}", e);
+                let _ = log::log_to_file(err_msg);
             }
         }
     }
@@ -85,7 +88,7 @@ async fn main() {
             commands::inactivityalert(),
             commands::shinx(),
             commands::shinx_collection(),
-            commands::unshid(),
+            commands::unshid_test(),
             ], // COMMANDS
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -193,7 +196,7 @@ async fn event_handler(
                     };
                     let spawn = rand::thread_rng().gen_range(0..=current_read.lunko_chance);
                     if spawn == 1 {
-                        if rand::thread_rng().gen_range(0..=50) == 25 {
+                        if rand::thread_rng().gen_range(0..=15) == 10 {
                             let file = File::open("shinylunko.png").await?;
                             let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
                             let content = CreateMessage::default()
