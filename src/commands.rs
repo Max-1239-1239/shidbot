@@ -568,7 +568,7 @@ pub async fn shinx_collection(
 
 /// Purge shidbot messages [Mod only]
 #[poise::command(slash_command, prefix_command, guild_only)] 
-pub async fn unshid_test(
+pub async fn unshid(
     ctx: Context<'_>,
     messages_to_search: u8,
 ) -> Result<(), Error> {
