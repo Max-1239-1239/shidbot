@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime};
 use rust_search::{FilterExt, SearchBuilder};
 
 mod log {
-    use std::{fmt::Write as _, fs::{OpenOptions}, io::Write};
+    use std::{fs::{OpenOptions}, io::Write};
     use ::time::{Error, UtcDateTime, format_description};
 
     pub fn log_to_file(message: String) -> Result<(), Error>  {
@@ -23,11 +23,13 @@ mod log {
             .create(true)
             .append(true)
             .open("bot.log");
-        let mut log_message = String::new();
-        let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
-        let time = UtcDateTime::now();
-        let timestamp = time.format(&format)?;
-        let _ = write!(&mut log_message, "\n{timestamp}: {message}");
+        let timestamp = {
+            let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
+            let time = UtcDateTime::now();
+            let timestamp = time.format(&format)?;
+            timestamp
+        };
+        let log_message = format!("\n{timestamp}: {message}");
         let _ = log_file.unwrap().write_all(&log_message.into_bytes());
         Ok(())
     }
@@ -217,34 +219,38 @@ pub async fn ban(
     target: serenity::User,
     reason: String,
 ) -> Result<(), Error> {
-    let role_list=  ctx.author_member().await.unwrap().roles(&ctx.cache()).unwrap();
+    let role_list = ctx.author_member().await.unwrap().roles(&ctx.cache()).unwrap();
     let id: u64 = 869998894644351056;
     let moderator_role = ctx.guild_id().unwrap().role(ctx.http(), serenity::RoleId::from(id)).await?;
     if role_list.contains(&moderator_role) {
-        let target_is_mod = {
-            let role_list = target.clone().member.unwrap().roles;
-            if role_list.contains(&moderator_role.id) {
+        let member = target.clone().member;
+        let target_is_in_server = match member.clone() {
+            Some(_x) => {
                 true
-            } else {
+            }
+            None => {
                 false
             }
         };
-        if target_is_mod == true {
-            ctx.say("this command cannot be used on moderators").await?;
-            let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a moderator! Target: {}", ctx.author().id, target.id.to_string());
-            let _ = log::log_to_file(log_msg);
-            return Ok(());
-        } else {
+        if target_is_in_server {
+            let roles = member.unwrap().roles;
+            if roles.contains(&moderator_role.id) {
+                ctx.say("this command cannot be used on moderators").await?;
+                let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a moderator! Target: {}", ctx.author().id, target.id.to_string());
+                let _ = log::log_to_file(log_msg);
+                return Ok(());
+            }
+        }
         ctx.partial_guild().await.unwrap().ban_with_reason(&ctx.http(), &target, 0, reason).await?;
         ctx.say("user banned").await?;
         let mut log = String::new();
         let _ = write!(&mut log, "User {} banned by {}.", target.id.to_string(), ctx.author().id,);
         let _ = log::log_to_file(log);
-        }
+        return Ok(())
     } else {
         ctx.say("moderator only command").await?;
+        return Ok(())
     };
-    Ok(())
 }
 
 /// Get information on someone outside of the server
@@ -374,7 +380,7 @@ pub async fn customalert(
         file.write_all(json_data.as_bytes()).await?;
         ctx.say("alert started").await?;
     };
-    loop {
+    for _i in 1..=100 {
         let rand_duration = rand::thread_rng().gen_range(1..=frequency);
         task::sleep(Duration::from_secs(rand_duration)).await;
         let json_data = fs::read_to_string("config.json")?;
@@ -510,10 +516,6 @@ pub async fn shinx(
         .build()
         .collect();
     if search.len() > 0 {
-        if &search[0] == "/home/botpi/shinx" {
-            ctx.rerun().await?;
-            return Ok(())
-        }
         let shuffled_shinxes = {
         let mut rng = rand::thread_rng();
             search.shuffle(&mut rng);
@@ -570,8 +572,8 @@ pub async fn unshid(
     ctx: Context<'_>,
     messages_to_search: u8,
 ) -> Result<(), Error> {
-    if messages_to_search > 100 {
-        ctx.say("this is limited to 100 messages, try again").await?;
+    if messages_to_search > 100 || messages_to_search <= 1{
+        ctx.say("number must be between 2 and 100").await?;
         return Ok(())
     }
     let channel_id = ctx.channel_id();
@@ -581,14 +583,13 @@ pub async fn unshid(
         let mut targets = Vec::new();
         for message in messages {
             if message.author.id == 1389315953401266216 {
-                targets.push(message)
+                targets.push(message.id)
             }
         };
         targets
     };
-    for message in target_messages {
-        message.delete(&ctx.http()).await?;
-    }
-    ctx.say("done!").await?;
+    let msg= format!("found {} messages, deleting", target_messages.len());
+    ctx.say(msg).await?;
+    channel_id.delete_messages(&ctx.http(), target_messages).await?;
     Ok(())
 }
