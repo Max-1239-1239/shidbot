@@ -1,48 +1,19 @@
-use crate::{Context, Error};
+#![allow(deprecated)]
+
+use crate::{Context, Error, commands::config_access::ConfigOption};
 use serenity::CreateAttachment;
 use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
 use rand::{Rng, seq::SliceRandom};
-use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::ChannelId}};
+use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use std::{fmt::Write, fs};
-use serde::{Deserialize, Serialize};
-use serde_json;
+use std::{fmt::Write};
 use async_std::task::{self};
 use std::time::{Duration, SystemTime};
-use rust_search::{FilterExt, SearchBuilder};
-
-mod log {
-    use std::{fs::{OpenOptions}, io::Write};
-    use ::time::{Error, UtcDateTime, format_description};
-
-    pub fn log_to_file(message: String) -> Result<(), Error>  {
-        let log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("bot.log");
-        let timestamp = {
-            let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
-            let time = UtcDateTime::now();
-            let timestamp = time.format(&format)?;
-            timestamp
-        };
-        let log_message = format!("\n{timestamp}: {message}");
-        let _ = log_file.unwrap().write_all(&log_message.into_bytes());
-        Ok(())
-    }
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-pub struct Config {
-    lunko_chance: u64,
-    mute_list: Vec<serenity::UserId>,
-    muted: bool,
-    custom_alert_active: bool,
-    inactivity_alert_active: bool,
-}
+pub mod log;
+pub mod config_access;
 
 /// Get information about shidbot
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -54,7 +25,7 @@ pub async fn about(
         ctx,
         command.as_deref(),
         poise::builtins::HelpConfiguration {
-            extra_text_at_bottom: "I'm shidbot, a bot written in Rust running on a raspberry pi 3 model b+! \nContact max1239 for help/suggestions",
+            extra_text_at_bottom: "I'm shidbot, a discord bot written in rust! \nDeveloped by max1239, contact him for suggestions or bug reports!",
             ..Default::default()
         },
     )
@@ -80,8 +51,8 @@ pub async fn ping(
 pub async fn lunko(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let file = File::open("lunkoembed.png").await?;
-    let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
+    let file = File::open("images/lunkoembed.png").await?;
+    let attachment = CreateAttachment::file(&file, "images/lunkoembed.png").await?;
     let content = CreateReply::default()
         .attachment(attachment);
     ctx.send(content).await?;
@@ -114,68 +85,47 @@ pub async fn echo(
 pub async fn mutelist(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let json_data = fs::read_to_string("config.json")?;
-    let current_read: Config = serde_json::from_str(&json_data)?;
+    let current_list = {
+        match config_access::config_read(1).unwrap() {
+            ConfigOption::MuteList(x) => {
+                let current = x;
+                current
+            },
+            _ => {
+                let current: Vec<UserId> = Vec::new();
+                current
+            },
+        }
+    };
     let target_user = ctx.author().id;
-    let new_list: Vec<serenity::UserId> = if current_read.mute_list.clone().into_iter().position(|x: serenity::UserId| x == target_user) != None{
-        let position = (current_read.mute_list.clone().into_iter().position(|x: serenity::UserId| x == target_user)).expect("something bad happened ln 90");
-        let mut new_list = current_read.mute_list;
+    let new_list: Vec<serenity::UserId> = if current_list.clone().into_iter().position(|x: serenity::UserId| x == target_user) != None{
+        let position = (current_list.clone().into_iter().position(|x: serenity::UserId| x == target_user)).expect("something bad happened ln 90");
+        let mut new_list = current_list;
         new_list.remove(position);
         ctx.say("you have been removed from the list").await?;
         new_list
     } else {
-        let mut new_list: Vec<serenity::UserId> = current_read.mute_list;
+        let mut new_list: Vec<serenity::UserId> = current_list;
         new_list.push(target_user);
         ctx.say("you have been added to the list").await?;
         new_list
     };
-    let config_file = Config {
-        lunko_chance: current_read.lunko_chance,
-        mute_list: new_list,
-        muted: current_read.muted,
-        custom_alert_active: current_read.custom_alert_active,
-        inactivity_alert_active: current_read.inactivity_alert_active,
-    };
-    let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-    let mut file = File::create("config.json").await?;
-    file.write_all(json_data.as_bytes()).await?;
+    config_access::config_edit(ConfigOption::MuteList(new_list)).await?;
     Ok(())
 }
 
-/// Temporarily mute shidbot's random events [Mod Only]
+/// Temporarily mute shidbot's random events [Requires mute permissions]
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn mute(
     ctx: Context<'_>,
     duration: u64,
 ) -> Result<(), Error> {
-    let role_list=  ctx.author_member().await.unwrap().roles(&ctx.cache()).unwrap();
-    let id: u64 = 869998894644351056;
-    let moderator_role = ctx.guild_id().unwrap().role(ctx.http(), serenity::RoleId::from(id)).await?;
-    if role_list.contains(&moderator_role) {
+    let member_permissions = ctx.author_member().await.unwrap().permissions(&ctx.cache()).unwrap();
+    if member_permissions.mute_members() {
         ctx.say("mute started").await?;
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: true,
-            custom_alert_active: current_read.custom_alert_active,
-            inactivity_alert_active: current_read.inactivity_alert_active,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::Muted(true)).await?;
         task::sleep(Duration::from_secs(duration)).await;
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: config_file.mute_list,
-            muted: false,
-            custom_alert_active: current_read.custom_alert_active,
-            inactivity_alert_active: current_read.inactivity_alert_active,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::Muted(false)).await?;
         ctx.say("mute ended").await?;
     } else {
         ctx.say("you need to be a moderator to use this").await?;
@@ -189,21 +139,21 @@ pub async fn config(
     ctx: Context<'_>,
     new_spawn_chance: Option<u64>,
 ) -> Result<(), Error> {
-    let bot_admins: [u64; 2] = [739931053560430802, 296273378636201985];
-    if bot_admins.contains(&u64::from(ctx.author().id)) {
+    let bot_admins = {
+        match config_access::config_read(5).unwrap() {
+            ConfigOption::BotAdmins(x) => {
+                let current = x;
+                current
+            },
+            _ => {
+                let current: Vec<UserId> = Vec::new();
+                current
+            },
+        }
+    };
+    if bot_admins.contains(&ctx.author().id) {
         if new_spawn_chance != None {
-            let json_data = fs::read_to_string("config.json")?;
-            let current_read: Config = serde_json::from_str(&json_data)?;
-            let config_file = Config {
-                lunko_chance: new_spawn_chance.unwrap(),
-                mute_list: current_read.mute_list,
-                muted: current_read.muted,
-                custom_alert_active: current_read.custom_alert_active,
-                inactivity_alert_active: current_read.inactivity_alert_active,
-            };
-            let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-            let mut file = File::create("config.json").await?;
-            file.write_all(json_data.as_bytes()).await?;
+            config_access::config_edit(ConfigOption::LunkoChance(new_spawn_chance.unwrap())).await?;
             ctx.say("spawn chance changed").await?;
         };
     } else {
@@ -212,17 +162,15 @@ pub async fn config(
     Ok(())
 }
 
-///Ban a user [Mod Only]
+///Ban a user [Requires ban permissions]
 #[poise::command(prefix_command, slash_command, guild_only)]
 pub async fn ban(
     ctx: Context<'_>,
     target: serenity::User,
     reason: String,
 ) -> Result<(), Error> {
-    let role_list = ctx.author_member().await.unwrap().roles(&ctx.cache()).unwrap();
-    let id: u64 = 869998894644351056;
-    let moderator_role = ctx.guild_id().unwrap().role(ctx.http(), serenity::RoleId::from(id)).await?;
-    if role_list.contains(&moderator_role) {
+    let member_permissions = ctx.author_member().await.unwrap().permissions.unwrap();
+    if member_permissions.ban_members() {
         let member = target.clone().member;
         let target_is_in_server = match member.clone() {
             Some(_x) => {
@@ -233,10 +181,9 @@ pub async fn ban(
             }
         };
         if target_is_in_server {
-            let roles = member.unwrap().roles;
-            if roles.contains(&moderator_role.id) {
-                ctx.say("this command cannot be used on moderators").await?;
-                let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a moderator! Target: {}", ctx.author().id, target.id.to_string());
+            if member_permissions.ban_members() {
+                ctx.say("this command cannot be used on others with ban permissions").await?;
+                let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a user with ban permissions! Target: {}", ctx.author().id, target.id.to_string());
                 let _ = log::log_to_file(log_msg);
                 return Ok(());
             }
@@ -255,7 +202,7 @@ pub async fn ban(
 
 /// Get information on someone outside of the server
 #[poise::command(prefix_command, slash_command)]
-pub async fn whothefuck(
+pub async fn whoisglobal(
     ctx: Context<'_>,
     user_id: serenity::User,
 ) -> Result<(), Error> {
@@ -266,9 +213,10 @@ pub async fn whothefuck(
         let link = user_id.default_avatar_url();
         link
     };
-    let account_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user_id.created_at().unix_timestamp() as u64)).as_secs() as i64).unwrap();
-    let mut account_age_string = (account_age.unix_timestamp() / 31557600).to_string();
-    account_age_string.push_str(&format!("{}", account_age.format(" years, %-m months, %e days")).to_string());
+    let account_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user_id.created_at().unix_timestamp() as u64)).as_secs() as i64).unwrap();    let years = account_age.unix_timestamp() / 31557600;
+    let months = (account_age.unix_timestamp() / 2629746 ) - (years * 12);
+    let days = (account_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
+    let account_age_string = format!("{} years, {} months, {} days", years, months, days);
 
     let embed = CreateEmbed::new()
         .thumbnail(link)
@@ -297,12 +245,16 @@ pub async fn whois(
         link
     };
     let account_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.user.created_at().unix_timestamp() as u64)).as_secs() as i64).unwrap();
-    let mut account_age_string = (account_age.unix_timestamp() / 31557600).to_string();
-    account_age_string.push_str(&format!("{}", account_age.format(" years, %-m months, %e days")).to_string());
+    let years = account_age.unix_timestamp() / 31557600;
+    let months = (account_age.unix_timestamp() / 2629746 ) - (years * 12);
+    let days = (account_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
+    let account_age_string = format!("{} years, {} months, {} days", years, months, days);
 
-    let server_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.joined_at.unwrap().unix_timestamp() as u64)).as_secs() as i64).unwrap();
-    let mut server_age_string = (server_age.unix_timestamp() / 31557600).to_string();
-    server_age_string.push_str(&format!("{}", server_age.format(" years, %-m months, %e days")).to_string());
+    let server_age: serenity::Timestamp = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.joined_at.unwrap().unix_timestamp() as u64)).as_secs() as i64).unwrap();
+    let years = server_age.unix_timestamp() / 31557600;
+    let months = (server_age.unix_timestamp() / 2629746 ) - (years * 12);
+    let days = (server_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
+    let server_age_string = format!("{} years, {} months, {} days", years, months, days);
 
     let role_list=  user.roles(&ctx.cache()).unwrap();
     let mut length = role_list.len();
@@ -341,65 +293,83 @@ pub async fn customalert(
     frequency: u64,
     cancel: Option<bool>,
 ) -> Result<(), Error> {
-    let json_data = fs::read_to_string("config.json")?;
-    let current_read: Config = serde_json::from_str(&json_data)?;
     if cancel == None {
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: current_read.muted,
-            custom_alert_active: true,
-            inactivity_alert_active: current_read.inactivity_alert_active,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::CustomAlertActive(true)).await?;
         ctx.say("alert started").await?;
     } else if cancel.unwrap() == true{
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: current_read.muted,
-            custom_alert_active: false,
-            inactivity_alert_active: current_read.inactivity_alert_active,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::CustomAlertActive(false)).await?;
         ctx.say("alert cancelled").await?;
     } else {
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: current_read.muted,
-            custom_alert_active: true,
-            inactivity_alert_active: current_read.inactivity_alert_active,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::CustomAlertActive(true)).await?;
         ctx.say("alert started").await?;
     };
     for _i in 1..=100 {
         let rand_duration = rand::thread_rng().gen_range(1..=frequency);
         task::sleep(Duration::from_secs(rand_duration)).await;
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        if current_read.custom_alert_active == false {
+        let active_status = {
+            match config_access::config_read(3).unwrap() {
+                ConfigOption::CustomAlertActive(x) => {
+                    let current = x;
+                    current
+                },
+                _ => {
+                    let current: bool = false;
+                    current
+                },
+            }
+        };
+        let muted_status = {
+            match config_access::config_read(2).unwrap() {
+                ConfigOption::Muted(x) => {
+                    let current = x;
+                    current
+                },
+                _ => {
+                    let current: bool = false;
+                    current
+                },
+            }
+        };
+        if active_status == false {
             break;
         }
-        if current_read.muted == false {
+        if muted_status == false {
             let channel = {
-                let guild = PartialGuild::get(&ctx.http(), 765689692851011595).await.unwrap();
-                let channelid = ChannelId::new(1316842131427688590);
-                let channels = guild.channels(&ctx.http()).await.unwrap();
+                let guild_channel = {
+                    match config_access::config_read(6).unwrap() {
+                        ConfigOption::CustomAlertTargetChannel(x, y) => {
+                            let current = (x, y);
+                            current
+                        },
+                        _ => {
+                            let current: (u64, u64) = (0, 0);
+                            current
+                        },
+                    }
+                };
+                let guild = PartialGuild::get(&ctx.http(), guild_channel.0).await;
+                match guild {
+                    Ok(_) => {}
+                    Err(_) => {
+                        ctx.say("i couldn't find the configured guild, the bot may be improperly configured").await?;
+                        return Ok(())
+                    }
+                }
+                let guild = guild.unwrap();
+                let channelid = ChannelId::new(guild_channel.1);
+                let channels = guild.channels(&ctx.http()).await;
+                match channels {
+                    Ok(_) => {}
+                    Err(_) => {
+                        ctx.say("i couldn't find the configured channel, the bot may be improperly configured").await?;
+                        return Ok(())
+                    }
+                }
+                let channels = channels.unwrap();
                 let channel = channels[&channelid].clone();
                 channel
             };
-            let mut ping_string = "<@".to_string();
-            let user_id_string = user.id.get().to_string();
-            ping_string.push_str(&user_id_string);
-            ping_string.push_str(">");
+            let ping_string = format!("<@{}>", user.id.get().to_string());
             channel.say(&ctx.http(), ping_string).await?;
         }        
     }    
@@ -451,39 +421,29 @@ pub async fn inactivityalert(
 ) -> Result<(), Error> {
     let ref_guild = ctx.guild_channel().await.unwrap();
     let mut elapsed_min: u32 = 0;
-    if cancel != None {
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: current_read.muted,
-            custom_alert_active: current_read.custom_alert_active,
-            inactivity_alert_active: false,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+    if cancel == None {
+        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
+    } else if cancel.unwrap() {
+        config_access::config_edit(ConfigOption::InactivityAlertActive(false)).await?;
     } else {
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        let config_file = Config {
-            lunko_chance: current_read.lunko_chance,
-            mute_list: current_read.mute_list,
-            muted: current_read.muted,
-            custom_alert_active: current_read.custom_alert_active,
-            inactivity_alert_active: true,
-        };
-        let json_data = serde_json::to_string_pretty(&config_file).unwrap();
-        let mut file = File::create("config.json").await?;
-        file.write_all(json_data.as_bytes()).await?;
+        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
     };
     let last_id = ref_guild.last_message_id.unwrap(); 
     loop {
         task::sleep(Duration::from_mins(2)).await; 
-        let json_data = fs::read_to_string("config.json")?;
-        let current_read: Config = serde_json::from_str(&json_data)?;
-        if current_read.inactivity_alert_active == false {
+        let active_status = {
+            match config_access::config_read(4).unwrap() {
+                ConfigOption::InactivityAlertActive(x) => {
+                    let current = x;
+                    current
+                },
+                _ => {
+                    let current: bool = false;
+                    current
+                },
+            }
+        };
+        if active_status == false {
             break;
         }
         let ref_guild = ctx.guild_channel().await.unwrap();
@@ -505,16 +465,19 @@ pub async fn inactivityalert(
 }
 
 
-/// shinx
+/// Shinx
 #[poise::command(slash_command, prefix_command)] 
 pub async fn shinx(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let mut search: Vec<String> = SearchBuilder::default() 
-        .location("/home/botpi/shinx")
-        .custom_filter(|dir| dir.metadata().unwrap().is_file())
-        .build()
-        .collect();
+    let mut search = {
+        let files = std::fs::read_dir("images/shinx")?;
+        let mut file_paths = Vec::new();
+        for entry in files {
+            file_paths.push(entry.unwrap().path());
+        };
+        file_paths
+    };
     if search.len() > 0 {
         let shuffled_shinxes = {
         let mut rng = rand::thread_rng();
@@ -522,8 +485,7 @@ pub async fn shinx(
             search.clone()
         };
         let attachment = {
-            let shinx = shuffled_shinxes[0].clone();
-            println!("{:?}", shinx);
+            let shinx = shuffled_shinxes[0].clone().into_os_string().into_string().unwrap();
             let file = File::open(&shinx).await?;
             let attachment = CreateAttachment::file(&file, &shinx).await?; 
             attachment    
@@ -532,11 +494,12 @@ pub async fn shinx(
             .attachment(attachment);
         ctx.send(content).await?;
     } else {
-        ctx.say("couldn't find any shinx images to send <:shinx_dizzy:1387115203162013817>").await?;
+        ctx.say("couldn't find any shinx images to send").await?;
     };
     Ok(())
 }
 
+/// Add a new shinx image to the collection
 #[poise::command(context_menu_command = "Add to shinx collection")]
 pub async fn shinx_collection(
     ctx: Context<'_>, 
@@ -555,7 +518,7 @@ pub async fn shinx_collection(
                     return Ok(());
                 }
             };
-            let file_path = format!("/home/botpi/shinx/{}", &attachment.filename);
+            let file_path = format!("images/shinx/{}", &attachment.filename);
             let mut file = File::create(file_path.clone()).await?;
             let _ = file.write_all(&content).await; 
             let log_msg = format!("new image added to the folder by {}, path is: {}", ctx.author(), file_path);
@@ -566,7 +529,7 @@ pub async fn shinx_collection(
     Ok(())
 }
 
-/// Purge shidbot messages [Mod only]
+/// Purge shidbot messages
 #[poise::command(slash_command, prefix_command, guild_only)] 
 pub async fn unshid(
     ctx: Context<'_>,

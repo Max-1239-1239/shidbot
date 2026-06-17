@@ -1,53 +1,58 @@
 #![warn(clippy::str_to_string)]
 
-mod commands;
-mod log {
-    use std::{fs::{OpenOptions}, io::Write};
-    use ::time::{Error, UtcDateTime, format_description};
+/*
+Welcome to Shidbot's source code! Feel free to ask me (max1239) about anything in the code!
 
-    pub fn log_to_file(message: String) -> Result<(), Error>  {
-        let log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("bot.log");
-        let timestamp = {
-            let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
-            let time = UtcDateTime::now();
-            let timestamp = time.format(&format)?;
-            timestamp
-        };
-        let log_message = format!("\n{timestamp}: {message}");
-        let _ = log_file.unwrap().write_all(&log_message.into_bytes());
-        Ok(())
-    }
-}
+You'll notice there are four source code files in here, here's a quick description on what each one is:
+    main.rs (you are here!) -> The main file. Handles bot startup & runtime + shidbot alert + keyword responses
+    commands.rs -> The commands file, defines the functions for every command that Shidbot has
+    log.rs -> A really basic log module. Has one function which takes a message argument, appends a timestamp to it, and writes to the bot.log file
+    config_access.rs -> A selection of functions related to handling Shidbot's config file
+*/
+
+mod commands;
+use base64::engine::general_purpose;
+use commands::log;
+use commands::config_access;
 
 use async_std::task;
 use poise::{serenity_prelude as serenity};
 use rand::Rng;
-use ::serenity::{all::{CreateAttachment, CreateMessage, EditMember, EmojiId, ReactionType}, model::{guild::PartialGuild, id::ChannelId}};
+use ::serenity::model::id::UserId;
+use ::serenity::{all::{CreateAttachment, CreateMessage, EditMember, ReactionType}, model::{guild::PartialGuild, id::ChannelId}};
+use tokio::fs;
 use tokio::fs::File;
 use std::{fmt::Write, io::Read, sync::Arc, time::Duration};
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::{fs, fs::File as TokenFile};
+use std::{fs::File as TokenFile};
+use base64::prelude::*;
+use crate::commands::config_access::ConfigOption;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
+const APPLICATION_EMOJI_NAME_LIST: [&'static str; 17] = [ // a list of application emojis, used to make them on startup if needed 
+    ("shinx_shouting"),
+    ("shinx_tearyeyed"),
+    ("shinx_inspired"),
+    ("shinx_determined"),
+    ("shinx_dizzy"),
+    ("shinx_shocked"),
+    ("shinx_joy"),
+    ("shinx_stunned"),
+    ("shinx_angry"),
+    ("shinx_sigh"),
+    ("shinx_sad"),
+    ("shinx_crying"),
+    ("shinx_pain"),
+    ("shinx_normal"),
+    ("shinx_worried"),
+    ("shinx_happy"),
+    ("lunko")
+];
+
 #[derive(Debug)]
 pub struct Data {
     //
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-
-pub struct Config {
-    lunko_chance: u64,
-    mute_list: Vec<serenity::UserId>,
-    muted: bool,
-    custom_alert_active: bool,
-    inactivity_alert_active: bool,
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
@@ -57,7 +62,7 @@ async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
             let mut error_msg = String::new();
             let _ = write!(&mut error_msg, "Error in command `{}`: {:?}", ctx.command().name, error,);
             let _ = log::log_to_file(error_msg);
-        }
+        },
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
                 let err_msg = format!("Error while handling error: {}", e);
@@ -81,7 +86,7 @@ async fn main() {
             commands::config(),
             commands::ban(),
             commands::whois(),
-            commands::whothefuck(),
+            commands::whoisglobal(),
             commands::scramble(),
             commands::reverse(),
             commands::customalert(),
@@ -89,7 +94,7 @@ async fn main() {
             commands::shinx(),
             commands::shinx_collection(),
             commands::unshid(),
-            ], // COMMANDS
+            ], 
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
@@ -126,8 +131,15 @@ async fn main() {
         })
         .options(options)
         .build();
+    let config_file_check = fs::read("config.json").await; 
+    match config_file_check {
+        Ok(_) => {} // File exists, pass
+        Err(_) => { // File does not exist, make one w/ default values
+            let _ = config_access::config_setup().await;
+        }
+    }
     let mut token = String::new();
-    let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token);
+    let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token); // Grabs token from file & writes it to the token variable
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -145,79 +157,176 @@ async fn event_handler(
     _data: &Data,
 ) -> Result<(), Error> {
     match event {
-        serenity::FullEvent::Ready { data_about_bot: _ } => {
-            loop {
+        serenity::FullEvent::Ready { data_about_bot: _ } => { // Shidbot alert & emoji creation (if needed), begins on startup
+            let application_emojis = ctx.http.get_application_emojis().await?;
+            let mut emoji_list = Vec::new();
+            let existing_emoji_list = {
+                for emoji in application_emojis {
+                    emoji_list.push(emoji.name);
+                }
+                emoji_list
+            };
+            for emoji in APPLICATION_EMOJI_NAME_LIST {
+                if !existing_emoji_list.iter().any(|name| name == emoji) { // If emoji doesn't exist, shidbot will make it
+                    let attachment = {
+                        let path = format!("images/emojis/{}.png", emoji);
+                        let file = fs::read(path).await?;
+                        let base64_encoded_file = general_purpose::STANDARD.encode(file);
+                        let data_uri_string = format!("data:image/png;base64,{}", base64_encoded_file); 
+                        data_uri_string
+                    };
+                    ctx.create_application_emoji(emoji, &attachment).await?;
+                };
+            };
+            loop { // this is the shidbot alert 
                 let rand_duration = rand::thread_rng().gen_range(1..=604800); 
                 task::sleep(Duration::from_secs(rand_duration)).await;
-                let json_data = fs::read_to_string("config.json")?;
-                let current_read: Config = serde_json::from_str(&json_data)?;
-                if current_read.muted == false {
+                let muted_status = {
+                    match config_access::config_read(2).unwrap() {
+                        ConfigOption::Muted(x) => {
+                            let current = x;
+                            current
+                        },
+                        _ => {
+                            let current: bool = false;
+                            current
+                        },
+                    }
+                };
+                if !muted_status {
+                    let guild_channel = {
+                        match config_access::config_read(7).unwrap() {
+                            ConfigOption::ShidbotAlertTargetChannel(x, y, z) => {
+                                let current = (x, y, z);
+                                current
+                            },
+                            _ => {
+                                let current: (u64, u64, u64) = (0, 0, 0);
+                                current
+                            },
+                        }
+                    };
                     let channel = {
-                        let guild = PartialGuild::get(&ctx.http, 765689692851011595).await.unwrap();
-                        let channelid = ChannelId::new(1453439203101900944);
-                        let channels = guild.channels(&ctx.http).await.unwrap();
+                        let guild = PartialGuild::get(&ctx.http, guild_channel.0).await;
+                        match guild {
+                            Ok(_) => {}
+                            Err(_) => {
+                                return Ok(())
+                            }
+                        }
+                        let guild = guild.unwrap();
+                        let channelid = ChannelId::new(guild_channel.1);
+                        let channels = guild.channels(&ctx.http).await;
+                        match channels {
+                            Ok(_) => {}
+                            Err(_) => {
+                                return Ok(())
+                            }
+                        }
+                        let channels = channels.unwrap();
                         let channel = channels[&channelid].clone();
                         channel
-                    };
-                    channel.say(&ctx.http, "<@&1453436782627520777>").await?;
+                        };
+                    let ping = format!("<@&{}>", guild_channel.2);
+                    channel.say(&ctx.http, ping).await?;
                 }        
             }
         }
-        serenity::FullEvent::Message { new_message } => {
-                let message_content = new_message.content.to_lowercase();
-                let json_data = fs::read_to_string("config.json")?;
-                let current_read: Config = serde_json::from_str(&json_data)?;
-                if current_read.muted == false && current_read.mute_list.contains(&new_message.author.id) == false{
-                    if message_content.contains("lunko") {
-                        new_message.react(ctx.http.clone(), ReactionType::from(EmojiId::from(1483594664190673028))).await?;
-                    };
-                    if message_content.contains("shinx") {
-                        let shinx_list : [u64; 18] = [
-                        1387115198560731338,
-                        1387115199814828074,
-                        1387115201261998160,
-                        1387115203162013817,
-                        1387115204692938954,
-                        1387115524198105200,
-                        1387115209038106725,
-                        1387115525737545728,
-                        1387115214738161735,
-                        1387115528451260607,
-                        1387115218366369922,
-                        1387115522792882290,
-                        1387115192210685984,
-                        1387115193598873770,
-                        1387115195457081425,
-                        1387115197201776790,
-                        1452160133756092609,
-                        1295227647164420177,];
-                        let shinx: usize = rand::thread_rng().gen_range(0..=18);
-                        new_message.react(ctx.http.clone(), ReactionType::from(EmojiId::from(shinx_list[shinx]))).await?;
-                    };
-                    let spawn = rand::thread_rng().gen_range(0..=current_read.lunko_chance);
-                    if spawn == 1 {
-                        if rand::thread_rng().gen_range(0..=15) == 10 {
-                            let file = File::open("shinylunko.png").await?;
-                            let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
-                            let content = CreateMessage::default()
-                                .add_file(attachment);
-                            let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                            guild.send_message(ctx.http.clone(), content).await?;
-                        } else {
-                            let file = File::open("lunkoembed.png").await?;
-                            let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
-                            let content = CreateMessage::default()
-                                .add_file(attachment);
-                            let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                            guild.send_message(ctx.http.clone(), content).await?;
+        serenity::FullEvent::Message { new_message } => { // Message keyword responses
+            let message_content = new_message.content.to_lowercase();
+            let muted_status = {
+                match config_access::config_read(2).unwrap() {
+                    ConfigOption::Muted(x) => {
+                        let current = x;
+                        current
+                    },
+                    _ => {
+                        let current: bool = false;
+                        current
+                    },
+                }
+            };
+            let current_list = {
+                match config_access::config_read(1).unwrap() {
+                    ConfigOption::MuteList(x) => {
+                        let current = x;
+                        current
+                    },
+                    _ => {
+                        let current: Vec<UserId> = Vec::new();
+                        current
+                    },
+                }
+            };
+            if !muted_status && !current_list.contains(&new_message.author.id) {
+                if message_content.contains("lunko") {
+                    let application_emojis = ctx.http.get_application_emojis().await?;
+                    new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[16].clone())).await?;
+                };
+                if message_content.contains("shinx") {
+                    let application_emojis = ctx.http.get_application_emojis().await?;
+                    match &message_content {
+                        msg if msg.contains("shinx_shouting") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[0].id)).await?;}
+                        msg if msg.contains("shinx_tearyeyed") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[1].id)).await?;}
+                        msg if msg.contains("shinx_inspired") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[2].id)).await?;}
+                        msg if msg.contains("shinx_determined") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[3].id)).await?;}
+                        msg if msg.contains("shinx_dizzy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[4].id)).await?;}
+                        msg if msg.contains("shinx_shocked") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[5].id)).await?;}
+                        msg if msg.contains("shinx_joy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[6].id)).await?;}
+                        msg if msg.contains("shinx_stunned") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[7].id)).await?;}
+                        msg if msg.contains("shinx_angry") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[8].id)).await?;}
+                        msg if msg.contains("shinx_sigh") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[9].id)).await?;}
+                        msg if msg.contains("shinx_sad") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[10].id)).await?;}
+                        msg if msg.contains("shinx_crying") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[11].id)).await?;}
+                        msg if msg.contains("shinx_pain") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[12].id)).await?;}
+                        msg if msg.contains("shinx_normal") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[13].id)).await?;}
+                        msg if msg.contains("shinx_worried") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[14].id)).await?;}
+                        msg if msg.contains("shinx_happy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[15].id)).await?;}
+                        _ => {
+                            let shinx: usize = rand::thread_rng().gen_range(0..=15);
+                            new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[shinx].id)).await?;
                         }
-                    };
-                    if message_content.contains("thank you shidbot") {
-                        let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                        let content = CreateMessage::default()
-                            .content("<:shinx_joy:1387115209038106725>");
-                        guild.send_message(ctx.http.clone(), content).await?;                        
                     }
+
+                };
+                let lunko_chance = {
+                    match config_access::config_read(0).unwrap() {
+                        ConfigOption::LunkoChance(x) => {
+                            let current = x;
+                            current
+                        },
+                        _ => {
+                            let current: u64 = 0;
+                            current
+                        },
+                    }
+                };
+                let spawn = rand::thread_rng().gen_range(0..=lunko_chance);
+                if spawn == 1 {
+                    if rand::thread_rng().gen_range(0..=15) == 10 {
+                        let file = File::open("images/shinylunko.png").await?;
+                        let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
+                        let content = CreateMessage::default()
+                            .add_file(attachment);
+                        let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
+                        guild.send_message(ctx.http.clone(), content).await?;
+                    } else {
+                        let file = File::open("images/lunkoembed.png").await?;
+                        let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
+                        let content = CreateMessage::default()
+                            .add_file(attachment);
+                        let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
+                        guild.send_message(ctx.http.clone(), content).await?;
+                    }
+                };
+                if message_content.contains("thank you shidbot") { // thank you shidbot :)
+                    let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
+                    let application_emojis = ctx.http.get_application_emojis().await?;
+                    let emoji = format!("<:shinx_joy:{}>", application_emojis[6].id);
+                    let content = CreateMessage::default()
+                        .content(emoji);
+                    guild.send_message(ctx.http.clone(), content).await?;                        
+                }
             }
                 if message_content.contains("1239") {
                     let msg_length = message_content.len();
@@ -240,7 +349,8 @@ async fn event_handler(
                     };
                 };
             }
-        _ => {}
+        _ => {} // Catch-all for other events
     }
     Ok(())
+    
 }

@@ -1,6 +1,6 @@
 [package]
 name = "Shidbot"
-version = "2.4.1"
+version = "2.5.0"
 edition = "2024"
 
 [dependencies]
@@ -10,11 +10,11 @@ serde_json = "1.0"
 "rand" = "0.8.5"
 serde = {version = "1.0.228", features = ["derive"]}
 serenity = { version = "0.12.5", features = ["full"] }
-tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.52.1", features = ["macros", "rt-multi-thread", "fs"] }
 tracing-subscriber = "0.3.19"
 async-std = "1.13.2"
 chrono = "0.4.44"
 time = {version = "0.3.47", features = ["std", "formatting"]}
-rust_search = "2.1.0"
+base64 = "0.22.1"
 
 
