@@ -2,35 +2,27 @@
 
 Has a variety of commands ranging from shitposts to utilities.  
   
-## Running your own Shidbot
+# Running your own Shidbot
 
-I don't suggest doing it. You'll need to make some code changes, as some things are hard-coded for Shidmark. But if you really want to:
+If you really want to run your own Shidbot instance, it's not too hard. Follow the instructions below and you should have the bot set up in no time!
 
-To start, build the source code using Cargo. Instructions for doing that can be found in Rust's documentation.  
+## Step 1: Setting Up The Bot
+
+To start, make an application in Discord's developer portal. Then, move to the "Bot" tab, and make a bot there. Give it all three intents and save your token somewhere safe. **Your bot token is the SOLE credential needed to access your bot! Be extremely careful with it!**  
+Next, go to the Oauth2 tab and scroll to the URL generator. Pick "bot" and nothing else, and paste the generated link into your browser to add your bot to a server. You need Manage Server permissions to add a bot to a server.   
   
-Afterawrds, there are a few extra steps, as the bot depends on some external files to run. Just create them, format them if needed, and put them in the same directory as the binary.  
+You're done with this step! You have a cool bot now!
 
-- `token.txt`: Just make a file called token.txt and paste in your bot token.
+## Step 2: Building From Source
 
-- Both images in the repository need to be in the same directory as the binary. Don't rename them without updating the code.
+I don't provide compiled binaries, so you'll need to compile it yourself. The easiest way is using Cargo, which you can install on Rust's website. Install it, navigate to the downloaded repository, and run `cargo build --release` to build a binary for your platform. This will take a few minutes and needs some decent computational power, so be patient. **Note: I cannot guarantee that Shidbot will work on all operating systems! It is only tested on Linux. I highly doubt it will run on Windows due to the way file paths are handled, and honestly I have no clue how Mac does anything.**
 
-- You do not need to create a bot.log file, the bot will make one if it is not present.
+## Step 3: Setting Shidbot Up
 
-- `config.json`: A JSON file with all the needed config elements. The bot will not make one if not present nor will it will not fix an improperly filled out one.  
+Once you've built it, there should be a folder called "target" in Shidbot's directory. Put this wherever you want, then put the "images" folder from the repository in the same directory. Finally, make a new file in that directory called "token.txt". Paste your bot token in this file, make sure there's no whitespace at the beginning or end, then save it.  
   
-This is the format for the JSON file. This will start the bot off with a spawn chance of 1/200, an empty mutelist, and nothing active.
-
-```
-{
-  "lunko_chance": 200,
-  "mute_list": [],
-  "muted": false,
-  "shidbot_alert_active": false,
-  "custom_alert_active": false,
-  "inactivity_alert_active": false
-}
-```
+This is all you need! Run the script and your bot should go online. If it doesn't, run the script in a terminal to catch errors.
 
 
-## TODO
-- Figure out why `/customalert` stops after a varying period. 
+
+
