@@ -52,23 +52,33 @@ const APPLICATION_EMOJI_NAME_LIST: [&'static str; 17] = [ // a list of applicati
 
 #[derive(Debug)]
 pub struct Data {
-    //
+    // this is just kinda here as part of the quickstart stuff, its presence seems important but i dont use it
 }
 
 async fn on_error(error: poise::FrameworkError<'_, Data, Error>) {
     match error {
-        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
-        poise::FrameworkError::Command { error, ctx, .. } => {
+        poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error), // Catches errors during startup
+        poise::FrameworkError::Command { error, ctx, .. } => { // Catches & logs errors in commands
             let mut error_msg = String::new();
             let _ = write!(&mut error_msg, "Error in command `{}`: {:?}", ctx.command().name, error,);
             let _ = log::log_to_file(error_msg);
         },
-        error => {
+        poise::FrameworkError::CommandPanic { payload, ctx , .. } => { // Catches & logs panics in commands
+            match payload{
+                Some(t) => {
+                    let _ = log::log_to_file(format!("Panic in command `{}`: {:?}", ctx.command().name, t));
+                }
+                None => {
+                    let _ = log::log_to_file(format!("Panic in command `{}`", ctx.command().name));
+                }
+            }
+        },
+        error => { // Catches errors when handling errors
             if let Err(e) = poise::builtins::on_error(error).await {
                 let err_msg = format!("Error while handling error: {}", e);
                 let _ = log::log_to_file(err_msg);
             }
-        }
+        },
     }
 }
 
