@@ -25,7 +25,7 @@ pub async fn about(
         ctx,
         command.as_deref(),
         poise::builtins::HelpConfiguration {
-            extra_text_at_bottom: "I'm shidbot, a discord bot written in rust! \nDeveloped by max1239, contact him for suggestions or bug reports!",
+            extra_text_at_bottom: "I'm shidbot, a discord bot written in Rust! \nDeveloped by max1239, contact him for suggestions or bug reports! \nI'm also open source, see my github repository at github.com/Max-1239-1239/shidbot",
             ..Default::default()
         },
     )
@@ -183,7 +183,7 @@ pub async fn ban(
         if target_is_in_server {
             if member_permissions.ban_members() {
                 ctx.say("this command cannot be used on others with ban permissions").await?;
-                let log_msg = format!("WARNING: Attempted use of `/ban` by: {} on a user with ban permissions! Target: {}", ctx.author().id, target.id.to_string());
+                let log_msg = format!("Attempted use of `/ban` by: {} on a user with ban permissions | Target: {}", ctx.author().id, target.id.to_string());
                 let _ = log::log_to_file(log_msg);
                 return Ok(());
             }
@@ -413,7 +413,7 @@ pub async fn scramble(
 }
 
 #[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn inactivityalert(
+pub async fn inactivityalert( // this command is questionably functional, likely similar issues to /customalert
     ctx: Context<'_>,
     message: String,
     duration_minutes: u32,

@@ -31,7 +31,7 @@ pub enum ConfigOption {
 pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read a value from config files, return value needs to be unwrapped using a match statement
     let json_data = fs::read_to_string("config.json")?;
     let current_read: Config = serde_json::from_str(&json_data)?;
-    match field {
+    match field { // this matches the field argument to the desired field and returns the desired data
         0 => {
             return Ok(ConfigOption::LunkoChance(current_read.lunko_chance));
         },
@@ -65,7 +65,7 @@ pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read 
 pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used to edit config files
     let json_data = fs::read_to_string("config.json")?;
     let mut current_read: Config = serde_json::from_str(&json_data)?;
-    match new_value {
+    match new_value { // matches the input argument to type, edits the read data to the new value, and saves it
         ConfigOption::LunkoChance(chance) => {current_read.lunko_chance = chance},
         ConfigOption::MuteList(user_ids) => {current_read.mute_list = user_ids},
         ConfigOption::Muted(active) => {current_read.muted = active},
@@ -90,7 +90,7 @@ pub async fn config_setup() -> Result<(), Error> { // Runs at startup if there's
         custom_alert_active: false,
         inactivity_alert_active: false,
         bot_admins: Vec::new(),
-        custom_alert_target_channel: (0, 0), 
+        custom_alert_target_channel: (0, 0), // 0 is not a possible guild/channel/role/user/etc ID, so it effectively disables both features
         shidbot_alert_target_channel: (0, 0, 0), 
     };
     let json_data = serde_json::to_string_pretty(&config_file).unwrap();
