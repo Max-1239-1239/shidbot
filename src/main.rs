@@ -6,11 +6,15 @@ Welcome to Shidbot's source code! Feel free to ask me (max1239) about anything i
 You'll notice there are four source code files in here, here's a quick description on what each one is:
     main.rs (you are here!) -> The main file. Handles bot startup & runtime + shidbot alert + keyword responses
     commands.rs -> The commands file, defines the functions for every command that Shidbot has
-    log.rs -> A really basic log module. Has one function which takes a message argument, appends a timestamp to it, and writes to the bot.log file
+    keywords.rs -> The keywords file, defines the functions that run in response to a message keyword
+    log.rs -> A really basic log module. Has one function which takes a message argument, prefixes it with a timestamp, and writes to the bot.log file
     config_access.rs -> A selection of functions related to handling Shidbot's config file
+    utils.rs -> A selection of utility functions
 */
 
 mod commands;
+mod keywords;
+
 use base64::engine::general_purpose;
 use commands::log;
 use commands::config_access;
@@ -19,9 +23,8 @@ use async_std::task;
 use poise::{serenity_prelude as serenity};
 use rand::Rng;
 use ::serenity::model::id::UserId;
-use ::serenity::{all::{CreateAttachment, CreateMessage, EditMember, ReactionType}, model::{guild::PartialGuild, id::ChannelId}};
+use ::serenity::{all::model::{guild::PartialGuild, id::ChannelId}};
 use tokio::fs;
-use tokio::fs::File;
 use std::{fmt::Write, io::Read, sync::Arc, time::Duration};
 use std::{fs::File as TokenFile};
 use base64::prelude::*;
@@ -104,7 +107,9 @@ async fn main() {
             commands::shinx(),
             commands::shinx_collection(),
             commands::unshid(),
-            ], 
+            commands::jolt(),
+            commands::jolt_collection(),
+        ], 
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
             edit_tracker: Some(Arc::new(poise::EditTracker::for_timespan(
@@ -269,95 +274,27 @@ async fn event_handler(
                 }
             };
             if !muted_status && !current_list.contains(&new_message.author.id) {
-                if message_content.contains("lunko") {
-                    let application_emojis = ctx.http.get_application_emojis().await?;
-                    new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[16].clone())).await?;
-                };
+                keywords::lunko_spawn(ctx.clone(), new_message.clone()).await?;
+                if message_content.contains("lunk") {
+                    keywords::lunk_keyword(ctx.clone(), new_message.clone()).await?;
+                }
                 if message_content.contains("shinx") {
-                    let application_emojis = ctx.http.get_application_emojis().await?;
-                    match &message_content {
-                        msg if msg.contains("shinx_shouting") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[0].id)).await?;}
-                        msg if msg.contains("shinx_tearyeyed") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[1].id)).await?;}
-                        msg if msg.contains("shinx_inspired") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[2].id)).await?;}
-                        msg if msg.contains("shinx_determined") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[3].id)).await?;}
-                        msg if msg.contains("shinx_dizzy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[4].id)).await?;}
-                        msg if msg.contains("shinx_shocked") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[5].id)).await?;}
-                        msg if msg.contains("shinx_joy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[6].id)).await?;}
-                        msg if msg.contains("shinx_stunned") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[7].id)).await?;}
-                        msg if msg.contains("shinx_angry") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[8].id)).await?;}
-                        msg if msg.contains("shinx_sigh") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[9].id)).await?;}
-                        msg if msg.contains("shinx_sad") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[10].id)).await?;}
-                        msg if msg.contains("shinx_crying") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[11].id)).await?;}
-                        msg if msg.contains("shinx_pain") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[12].id)).await?;}
-                        msg if msg.contains("shinx_normal") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[13].id)).await?;}
-                        msg if msg.contains("shinx_worried") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[14].id)).await?;}
-                        msg if msg.contains("shinx_happy") => {new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[15].id)).await?;}
-                        _ => {
-                            let shinx: usize = rand::thread_rng().gen_range(0..=15);
-                            new_message.react(ctx.http.clone(), ReactionType::from(application_emojis[shinx].id)).await?;
-                        }
-                    }
-
-                };
-                let lunko_chance = {
-                    match config_access::config_read(0).unwrap() {
-                        ConfigOption::LunkoChance(x) => {
-                            let current = x;
-                            current
-                        },
-                        _ => {
-                            let current: u64 = 0;
-                            current
-                        },
-                    }
-                };
-                let spawn = rand::thread_rng().gen_range(0..=lunko_chance);
-                if spawn == 1 {
-                    if rand::thread_rng().gen_range(0..=15) == 10 {
-                        let file = File::open("images/shinylunko.png").await?;
-                        let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
-                        let content = CreateMessage::default()
-                            .add_file(attachment);
-                        let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                        guild.send_message(ctx.http.clone(), content).await?;
-                    } else {
-                        let file = File::open("images/lunkoembed.png").await?;
-                        let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
-                        let content = CreateMessage::default()
-                            .add_file(attachment);
-                        let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                        guild.send_message(ctx.http.clone(), content).await?;
-                    }
+                    keywords::shinx_keyword(ctx.clone(), new_message.clone(), message_content.clone()).await?;
                 };
                 if message_content.contains("thank you shidbot") { // thank you shidbot :)
-                    let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                    let application_emojis = ctx.http.get_application_emojis().await?;
-                    let emoji = format!("<:shinx_joy:{}>", application_emojis[6].id);
-                    let content = CreateMessage::default()
-                        .content(emoji);
-                    guild.send_message(ctx.http.clone(), content).await?;                        
+                    keywords::thank_you_shidbot(ctx.clone(), new_message.clone()).await?;
+                };
+                if message_content.contains("thank you tracy") {
+                    keywords::thank_you_tracy(ctx.clone(), new_message.clone()).await?;
+                }
+                if message_content.contains("hello shidbot") {
+                    keywords::hello_shidbot(ctx.clone(), new_message.clone()).await?;
                 }
             }
                 if message_content.contains("1239") {
-                    let msg_length = message_content.len();
-                    if &new_message.content[(msg_length - 4)..(msg_length)] == "1239" && new_message.author.bot == false && new_message.content.len() <= 32{
-                        if new_message.guild_id != None {
-                            let partial_guild = new_message.guild_id.unwrap().to_partial_guild(ctx.http.clone()).await?;
-                            let member_edit = EditMember::new()
-                                .nickname(new_message.content.clone());
-                            let mut log = String::new();
-                            let _ = write!(&mut log, "New name set by {}: {}", new_message.author.id, new_message.content);
-                            let _ = log::log_to_file(log);
-                            partial_guild.edit_member(ctx.http.clone(), 739931053560430802, member_edit).await?;
-                            let mut and_let_there_be = String::new();
-                            let _ = write!(&mut and_let_there_be, "and {} said let there be: {}", new_message.author.to_string(), new_message.content);
-                            let content = CreateMessage::default()
-                                .content(and_let_there_be);
-                            let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-                            guild.send_message(ctx.http.clone(), content).await?;   
-                        }
-                    };
+                    keywords::one_two_three_nine(ctx.clone(), new_message.clone(), message_content.clone()).await?;
                 };
+                
             }
         _ => {} // Catch-all for other events
     }

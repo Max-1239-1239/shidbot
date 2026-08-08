@@ -5,15 +5,15 @@ use serenity::CreateAttachment;
 use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
-use rand::{Rng, seq::SliceRandom};
+use rand::Rng;
 use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
 use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
-use std::{fmt::Write};
+use std::fmt::Write;
 use async_std::task::{self};
 use std::time::{Duration, SystemTime};
 pub mod log;
 pub mod config_access;
+mod utils;
 
 /// Get information about shidbot
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -213,10 +213,8 @@ pub async fn whoisglobal(
         let link = user_id.default_avatar_url();
         link
     };
-    let account_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user_id.created_at().unix_timestamp() as u64)).as_secs() as i64).unwrap();    let years = account_age.unix_timestamp() / 31557600;
-    let months = (account_age.unix_timestamp() / 2629746 ) - (years * 12);
-    let days = (account_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
-    let account_age_string = format!("{} years, {} months, {} days", years, months, days);
+    let account_age: usize = ((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user_id.created_at().unix_timestamp() as u64)).as_secs() as i64).try_into().unwrap();
+    let account_age_string = utils::timestamp_since(account_age);
 
     let embed = CreateEmbed::new()
         .thumbnail(link)
@@ -244,17 +242,10 @@ pub async fn whois(
         let link = user.user.default_avatar_url();
         link
     };
-    let account_age = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.user.created_at().unix_timestamp() as u64)).as_secs() as i64).unwrap();
-    let years = account_age.unix_timestamp() / 31557600;
-    let months = (account_age.unix_timestamp() / 2629746 ) - (years * 12);
-    let days = (account_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
-    let account_age_string = format!("{} years, {} months, {} days", years, months, days);
-
-    let server_age: serenity::Timestamp = serenity::Timestamp::from_unix_timestamp((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.joined_at.unwrap().unix_timestamp() as u64)).as_secs() as i64).unwrap();
-    let years = server_age.unix_timestamp() / 31557600;
-    let months = (server_age.unix_timestamp() / 2629746 ) - (years * 12);
-    let days = (server_age.unix_timestamp() / 86400) - (years * 365) - (months * 30);
-    let server_age_string = format!("{} years, {} months, {} days", years, months, days);
+    let account_age: usize = ((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.user.created_at().unix_timestamp() as u64)).as_secs() as i64).try_into().unwrap();
+    let account_age_string = utils::timestamp_since(account_age);
+    let server_age: usize = ((SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap() - Duration::from_secs(user.joined_at.unwrap().unix_timestamp() as u64)).as_secs() as i64).try_into().unwrap();
+    let server_age_string = utils::timestamp_since(server_age);
 
     let role_list=  user.roles(&ctx.cache()).unwrap();
     let mut length = role_list.len();
@@ -470,32 +461,8 @@ pub async fn inactivityalert( // this command is questionably functional, likely
 pub async fn shinx(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let mut search = {
-        let files = std::fs::read_dir("images/shinx")?;
-        let mut file_paths = Vec::new();
-        for entry in files {
-            file_paths.push(entry.unwrap().path());
-        };
-        file_paths
-    };
-    if search.len() > 0 {
-        let shuffled_shinxes = {
-        let mut rng = rand::thread_rng();
-            search.shuffle(&mut rng);
-            search.clone()
-        };
-        let attachment = {
-            let shinx = shuffled_shinxes[0].clone().into_os_string().into_string().unwrap();
-            let file = File::open(&shinx).await?;
-            let attachment = CreateAttachment::file(&file, &shinx).await?; 
-            attachment    
-        };
-        let content = CreateReply::default()
-            .attachment(attachment);
-        ctx.send(content).await?;
-    } else {
-        ctx.say("couldn't find any shinx images to send").await?;
-    };
+    let content = utils::random_image("shinx".to_owned()).await.expect("Error getting CreateReply");
+    ctx.send(content).await?;
     Ok(())
 }
 
@@ -505,27 +472,7 @@ pub async fn shinx_collection(
     ctx: Context<'_>, 
     msg: serenity::Message
 ) -> Result<(), Error> {
-    let attachments = msg.clone().attachments;
-    if attachments.len() < 1 {
-        msg.reply(ctx, "i can't find an image in this message").await?;
-    } else {
-        for attachment in &msg.attachments {
-            let content = match attachment.download().await {
-                Ok(content) => content,
-                Err(why) => {
-                    msg.reply(ctx, "something went wrong when downloading").await?;
-                    let _ = log::log_to_file(why.to_string());
-                    return Ok(());
-                }
-            };
-            let file_path = format!("images/shinx/{}", &attachment.filename);
-            let mut file = File::create(file_path.clone()).await?;
-            let _ = file.write_all(&content).await; 
-            let log_msg = format!("new image added to the folder by {}, path is: {}", ctx.author(), file_path);
-            let _ = log::log_to_file(log_msg);
-        }
-        msg.reply(ctx, "saved!").await?;
-    };
+    utils::add_to_collection("shinx".to_owned(), ctx, msg).await?;
     Ok(())
 }
 
@@ -554,5 +501,25 @@ pub async fn unshid(
     let msg= format!("found {} messages, deleting", target_messages.len());
     ctx.say(msg).await?;
     channel_id.delete_messages(&ctx.http(), target_messages).await?;
+    Ok(())
+}
+
+/// Jolteon
+#[poise::command(slash_command, prefix_command)] 
+pub async fn jolt(
+    ctx: Context<'_>,
+) -> Result<(), Error> {
+    let content = utils::random_image("jolt".to_owned()).await.expect("Error getting CreateReply");
+    ctx.send(content).await?;
+    Ok(())
+}
+
+/// Add a new jolteon image to the collection
+#[poise::command(context_menu_command = "Add to jolteon collection")]
+pub async fn jolt_collection(
+    ctx: Context<'_>, 
+    msg: serenity::Message
+) -> Result<(), Error> {
+    utils::add_to_collection("jolt".to_owned(), ctx, msg).await?;
     Ok(())
 }
