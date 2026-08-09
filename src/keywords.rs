@@ -108,7 +108,7 @@ pub async fn one_two_three_nine(
             let log = format!("New name set by {}: {}", new_message.author.id, new_message.content);
             let _ = log::log_to_file(log);
             partial_guild.edit_member(ctx.http.clone(), 739931053560430802, member_edit).await?;
-            let and_let_there_be = format!("and {} said let there be: {}", new_message.author.id, new_message.content);
+            let and_let_there_be = format!("and {} said: let there be {}", new_message.author, new_message.content);
             let content = CreateMessage::default()
                 .content(and_let_there_be);
             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
