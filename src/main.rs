@@ -107,8 +107,8 @@ async fn main() {
             commands::shinx(),
             commands::shinx_collection(),
             commands::unshid(),
-            commands::jolt(),
-            commands::jolt_collection(),
+            commands::jolteon(),
+            commands::jolteon_collection(),
         ], 
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),
@@ -284,7 +284,7 @@ async fn event_handler(
                 if message_content.contains("thank you shidbot") { // thank you shidbot :)
                     keywords::thank_you_shidbot(ctx.clone(), new_message.clone()).await?;
                 };
-                if message_content.contains("thank you tracy") {
+                if message_content.contains("thank") && message_content.contains("trac") {
                     keywords::thank_you_tracy(ctx.clone(), new_message.clone()).await?;
                 }
                 if message_content.contains("hello shidbot") {

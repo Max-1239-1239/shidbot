@@ -506,7 +506,7 @@ pub async fn unshid(
 
 /// Jolteon
 #[poise::command(slash_command, prefix_command)] 
-pub async fn jolt(
+pub async fn jolteon(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
     let content = utils::random_image("jolt".to_owned()).await.expect("Error getting CreateReply");
@@ -516,7 +516,7 @@ pub async fn jolt(
 
 /// Add a new jolteon image to the collection
 #[poise::command(context_menu_command = "Add to jolteon collection")]
-pub async fn jolt_collection(
+pub async fn jolteon_collection(
     ctx: Context<'_>, 
     msg: serenity::Message
 ) -> Result<(), Error> {
