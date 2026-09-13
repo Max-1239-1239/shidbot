@@ -16,6 +16,7 @@ pub struct Config {
     bot_admins: Vec<serenity::UserId>, // 5
     custom_alert_target_channel: (u64, u64), // 6 | Format: (GuildId, ChannelId)
     shidbot_alert_target_channel: (u64, u64, u64), // 7 | Change to an invalid ID to disable shidbot alert (GuildId, Channelid, RoleId)
+    startup_run: bool // 8
 }
 pub enum ConfigOption {
     LunkoChance(u64),
@@ -26,6 +27,7 @@ pub enum ConfigOption {
     BotAdmins(Vec<serenity::UserId>),
     CustomAlertTargetChannel(u64, u64),
     ShidbotAlertTargetChannel(u64, u64, u64),
+    StartupRun(bool),
 }
 
 pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read a value from config files, return value needs to be unwrapped using a match statement
@@ -56,6 +58,9 @@ pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read 
         7 => {
             return Ok(ConfigOption::ShidbotAlertTargetChannel(current_read.shidbot_alert_target_channel.0 , current_read.shidbot_alert_target_channel.1, current_read.shidbot_alert_target_channel.2));
         },
+        8 => {
+            return Ok(ConfigOption::StartupRun(current_read.startup_run));
+        }
         _ => {
             panic!("Field argument out of bounds.");
         }
@@ -74,6 +79,7 @@ pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used
         ConfigOption::BotAdmins(user_ids) => {current_read.bot_admins = user_ids},
         ConfigOption::CustomAlertTargetChannel(guild_id, channel_id) => {current_read.custom_alert_target_channel = (guild_id, channel_id)},
         ConfigOption::ShidbotAlertTargetChannel(guild_id, channel_id, role_id) => {current_read.shidbot_alert_target_channel = (guild_id, channel_id, role_id)},
+        ConfigOption::StartupRun(active ) => {current_read.startup_run = active},
     }
     let json_data = serde_json::to_string_pretty(&current_read).unwrap();
     let mut file = File::create("dependancies/data/config.json").await?;
@@ -92,6 +98,7 @@ pub async fn config_setup() -> Result<(), Error> { // Runs at startup if there's
         bot_admins: Vec::new(),
         custom_alert_target_channel: (0, 0), // 0 is not a possible guild/channel/role/user/etc ID, so it effectively disables both features
         shidbot_alert_target_channel: (0, 0, 0), 
+        startup_run: false,
     };
     let json_data = serde_json::to_string_pretty(&config_file).unwrap();
     file.write_all(json_data.as_bytes()).await?;

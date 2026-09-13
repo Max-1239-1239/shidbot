@@ -129,3 +129,15 @@ pub async fn hello_shidbot(
     guild_channel.send_message(ctx.http.clone(), content).await?;      
     Ok(())
 }
+
+pub async fn lunko_status_response(
+    response_type: usize,
+    ctx: serenity::Context,
+    new_message: serenity::Message,
+) -> Result<(), Error> {
+    let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
+    let content = CreateMessage::default()
+        .content(utils::get_status(response_type));
+    guild.send_message(ctx.http.clone(), content).await?;      
+    Ok(())
+}

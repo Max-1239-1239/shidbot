@@ -1,13 +1,36 @@
+use async_std::task;
+use ::serenity::model::{guild::PartialGuild, id::ChannelId};
 use tokio::{fs::File, io::AsyncWriteExt};
 use poise::serenity_prelude as serenity;
 use serenity::CreateAttachment;
 use poise::CreateReply;
-use rand::{seq::SliceRandom};
-use crate::{Context, Error, commands::log};
-
+use rand::{Rng, seq::SliceRandom};
+use crate::{Context, Error, commands::{config_access::{self, ConfigOption}, log}};
+use base64::{Engine, engine::general_purpose};
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::fs;
+use std::{fs, time::Duration};
+
+const APPLICATION_EMOJI_NAME_LIST: [&'static str; 17] = [ // a list of application emojis, used to make them on startup if needed 
+    ("shinx_shouting"),
+    ("shinx_tearyeyed"),
+    ("shinx_inspired"),
+    ("shinx_determined"),
+    ("shinx_dizzy"),
+    ("shinx_shocked"),
+    ("shinx_joy"),
+    ("shinx_stunned"),
+    ("shinx_angry"),
+    ("shinx_sigh"),
+    ("shinx_sad"),
+    ("shinx_crying"),
+    ("shinx_pain"),
+    ("shinx_normal"),
+    ("shinx_worried"),
+    ("shinx_happy"),
+    ("lunko")
+];
+
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct StatusOptions {
@@ -15,6 +38,87 @@ pub struct StatusOptions {
     chris_nylon_lunko_status: Vec<String>,
     tech_connections_lunko_status: Vec<String>,
     dankpods_lunko_status: Vec<String>,
+}
+
+pub async fn startup(
+    ctx: &serenity::Context,
+) -> Result<(), Error> {
+    config_access::config_edit(ConfigOption::StartupRun(true)).await?;
+    let application_emojis = ctx.http.get_application_emojis().await?;
+    let mut emoji_list = Vec::new();
+    let existing_emoji_list = {
+        for emoji in application_emojis {
+            emoji_list.push(emoji.name);
+        }
+        emoji_list
+    };
+    for emoji in APPLICATION_EMOJI_NAME_LIST {
+        if !existing_emoji_list.iter().any(|name| name == emoji) { // If emoji doesn't exist, shidbot will make it
+            let attachment = {
+                let path = format!("dependancies/emojis/{}.png", emoji);
+                let file = tokio::fs::read(path).await?;
+                let base64_encoded_file = general_purpose::STANDARD.encode(file);
+                let data_uri_string = format!("data:image/png;base64,{}", base64_encoded_file); 
+                data_uri_string
+            };
+            ctx.create_application_emoji(emoji, &attachment).await?;
+        };
+    };
+    log::log_to_file("Debug: Running startup commands".to_owned())?;
+    loop { // this is the shidbot alert 
+        let rand_duration = rand::thread_rng().gen_range(1..=604800); 
+        log::log_to_file(format!("Debug: Time to next alert: {} seconds", rand_duration))?;
+        task::sleep(Duration::from_secs(rand_duration)).await;
+        let muted_status = {
+            match config_access::config_read(2).unwrap() {
+                ConfigOption::Muted(x) => {
+                    let current = x;
+                    current
+                },
+                _ => {
+                    let current: bool = false;
+                    current
+                },
+            }
+        };
+        if !muted_status {
+            let guild_channel = {
+                match config_access::config_read(7).unwrap() {
+                    ConfigOption::ShidbotAlertTargetChannel(x, y, z) => {
+                        let current = (x, y, z);
+                        current
+                    },
+                    _ => {
+                        let current: (u64, u64, u64) = (0, 0, 0);
+                        current
+                    },
+                }
+            };
+            let channel = {
+                let guild = PartialGuild::get(&ctx.http, guild_channel.0).await;
+                match guild {
+                    Ok(_) => {}
+                    Err(_) => {
+                        return Ok(())
+                    }
+                }
+                let guild = guild.unwrap();
+                let channelid = ChannelId::new(guild_channel.1);
+                let channels = guild.channels(&ctx.http).await;
+                match channels {
+                    Ok(_) => {}
+                    Err(_) => {
+                        return Ok(())
+                    }
+                }
+                let channels = channels.unwrap();
+                let channel = channels[&channelid].clone();
+                channel
+                };
+            let ping = format!("<@&{}>", guild_channel.2);
+            channel.say(&ctx.http, ping).await?;
+        }        
+    }
 }
 
 pub async fn random_image(
@@ -120,4 +224,3 @@ pub fn timestamp_since(
     let timestamp = format!("{} years, {} months", times[0], times[1]);
     return timestamp;
 }
-
