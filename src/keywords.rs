@@ -3,7 +3,7 @@ use ::serenity::all::{CreateAttachment, CreateMessage, EditMember, ReactionType}
 use rand::Rng;
 use tokio::fs::File;
 
-use crate::{Error, commands::{log, config_access, config_access::ConfigOption}};
+use crate::{Error, commands::{config_access::{self, ConfigOption}, log, utils}};
 
 pub async fn shinx_keyword(
     ctx: serenity::Context, 
@@ -63,16 +63,17 @@ pub async fn lunko_spawn(
     };
     if rand::thread_rng().gen_range(0..=lunko_chance) == 1 {
         if rand::thread_rng().gen_range(0..=15) == 10 {
-            let file = File::open("images/shinylunko.png").await?;
+            let file = File::open("dependancies/shinylunko.png").await?;
             let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
             let content = CreateMessage::default()
                 .add_file(attachment);
             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
             guild.send_message(ctx.http.clone(), content).await?;
         } else {
-            let file = File::open("images/lunkoembed.png").await?;
+            let file = File::open("dependancies/lunkoembed.png").await?;
             let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
             let content = CreateMessage::default()
+                .content(utils::get_status(0))
                 .add_file(attachment);
             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
             guild.send_message(ctx.http.clone(), content).await?;
@@ -115,19 +116,6 @@ pub async fn one_two_three_nine(
             guild.send_message(ctx.http.clone(), content).await?;   
         }
     };
-    Ok(())
-}
-
-pub async fn thank_you_tracy(
-    ctx: serenity::Context,
-    new_message: serenity::Message,
-) -> Result<(), Error> {
-    let guild_channel = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
-    let application_emojis = ctx.http.get_application_emojis().await?;
-    let emoji = format!("<:shinx_angry:{}>", application_emojis[8].id);
-    let content = CreateMessage::default()
-        .content(emoji);
-    guild_channel.send_message(ctx.http.clone(), content).await?;      
     Ok(())
 }
 

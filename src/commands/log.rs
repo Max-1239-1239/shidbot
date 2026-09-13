@@ -5,7 +5,7 @@ pub fn log_to_file(message: String) -> Result<(), Error>  {
     let log_file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("bot.log");
+        .open("dependancies/data/bot.log");
     let timestamp = {
         let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")?;
         let time = UtcDateTime::now();

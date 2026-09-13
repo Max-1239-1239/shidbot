@@ -5,11 +5,23 @@ use poise::CreateReply;
 use rand::{seq::SliceRandom};
 use crate::{Context, Error, commands::log};
 
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::fs;
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct StatusOptions {
+    normal_lunko_status: Vec<String>,
+    chris_nylon_lunko_status: Vec<String>,
+    tech_connections_lunko_status: Vec<String>,
+    dankpods_lunko_status: Vec<String>,
+}
+
 pub async fn random_image(
     pokemon: String, // valid: shinx, jolt
 ) -> Result<CreateReply , Error> {
     let mut search = {
-        let files = std::fs::read_dir(format!("images/{}", pokemon))?;
+        let files = std::fs::read_dir(format!("dependancies/{}", pokemon))?;
         let mut file_paths = Vec::new();
         for entry in files {
             file_paths.push(entry.unwrap().path());
@@ -56,7 +68,7 @@ pub async fn add_to_collection(
                     return Ok(());
                 }
             };
-            let file_path = format!("images/{}/{}", pokemon.clone(), &attachment.filename);
+            let file_path = format!("dependancies/{}/{}", pokemon.clone(), &attachment.filename);
             let mut file = File::create(file_path.clone()).await?;
             let _ = file.write_all(&content).await; 
             let log_msg = format!("New image added to the {} folder by {}, path is: {}", pokemon.clone(), ctx.author(), file_path);
@@ -65,6 +77,33 @@ pub async fn add_to_collection(
         msg.reply(ctx, "saved!").await?;
     };
     Ok(())
+}
+
+pub fn get_status(
+    status_type: usize, // desired response, index starts at 0, in order of order in status.json
+) -> String {
+    let json_data = fs::read_to_string("dependancies/data/status.json").unwrap();
+    let current_read: StatusOptions = serde_json::from_str(&json_data).expect("failed to get json data");
+    let mut target_list = match status_type {
+        1 => {
+            current_read.chris_nylon_lunko_status
+        }, // chris nylon
+        2 => {
+            current_read.tech_connections_lunko_status
+        }, // tech connections
+        3 => {
+            current_read.dankpods_lunko_status
+        }, // dankpods
+        _ => { // 0 or other, returns a normal lunko status
+            current_read.normal_lunko_status
+        }
+    };
+    let random_status = {
+        let mut rng = rand::thread_rng();
+        target_list.shuffle(&mut rng);
+        target_list[0].clone()
+    };
+    return random_status;
 }
 
 pub fn timestamp_since(
@@ -81,3 +120,4 @@ pub fn timestamp_since(
     let timestamp = format!("{} years, {} months", times[0], times[1]);
     return timestamp;
 }
+

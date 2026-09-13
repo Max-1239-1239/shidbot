@@ -13,7 +13,7 @@ use async_std::task::{self};
 use std::time::{Duration, SystemTime};
 pub mod log;
 pub mod config_access;
-mod utils;
+pub mod utils;
 
 /// Get information about shidbot
 #[poise::command(prefix_command, track_edits, slash_command)]
@@ -51,9 +51,10 @@ pub async fn ping(
 pub async fn lunko(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let file = File::open("images/lunkoembed.png").await?;
-    let attachment = CreateAttachment::file(&file, "images/lunkoembed.png").await?;
+    let file = File::open("dependancies/lunkoembed.png").await?;
+    let attachment = CreateAttachment::file(&file, "dependancies/lunkoembed.png").await?;
     let content = CreateReply::default()
+        .content(utils::get_status(0))
         .attachment(attachment);
     ctx.send(content).await?;
     Ok(())

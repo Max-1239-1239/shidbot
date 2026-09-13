@@ -146,7 +146,7 @@ async fn main() {
         })
         .options(options)
         .build();
-    let config_file_check = fs::read("config.json").await; 
+    let config_file_check = fs::read("dependancies/data/config.json").await; 
     match config_file_check {
         Ok(_) => {} // File exists, pass
         Err(_) => { // File does not exist, make one w/ default values
@@ -154,7 +154,7 @@ async fn main() {
         }
     }
     let mut token = String::new();
-    let _ = TokenFile::open("token.txt").unwrap().read_to_string(&mut token); // Grabs token from file & writes it to the token variable
+    let _ = TokenFile::open("dependancies/data/token.txt").unwrap().read_to_string(&mut token); // Grabs token from file & writes it to the token variable
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -184,7 +184,7 @@ async fn event_handler(
             for emoji in APPLICATION_EMOJI_NAME_LIST {
                 if !existing_emoji_list.iter().any(|name| name == emoji) { // If emoji doesn't exist, shidbot will make it
                     let attachment = {
-                        let path = format!("images/emojis/{}.png", emoji);
+                        let path = format!("dependancies/emojis/{}.png", emoji);
                         let file = fs::read(path).await?;
                         let base64_encoded_file = general_purpose::STANDARD.encode(file);
                         let data_uri_string = format!("data:image/png;base64,{}", base64_encoded_file); 
@@ -193,8 +193,10 @@ async fn event_handler(
                     ctx.create_application_emoji(emoji, &attachment).await?;
                 };
             };
+            log::log_to_file("Debug: Running startup commands".to_owned())?;
             loop { // this is the shidbot alert 
                 let rand_duration = rand::thread_rng().gen_range(1..=604800); 
+                log::log_to_file(format!("Debug: Time to next alert: {} seconds", rand_duration))?;
                 task::sleep(Duration::from_secs(rand_duration)).await;
                 let muted_status = {
                     match config_access::config_read(2).unwrap() {
@@ -284,9 +286,6 @@ async fn event_handler(
                 if message_content.contains("thank you shidbot") { // thank you shidbot :)
                     keywords::thank_you_shidbot(ctx.clone(), new_message.clone()).await?;
                 };
-                if message_content.contains("thank") && message_content.contains("trac") {
-                    keywords::thank_you_tracy(ctx.clone(), new_message.clone()).await?;
-                }
                 if message_content.contains("hello shidbot") {
                     keywords::hello_shidbot(ctx.clone(), new_message.clone()).await?;
                 }
@@ -299,5 +298,4 @@ async fn event_handler(
         _ => {} // Catch-all for other events
     }
     Ok(())
-    
 }
