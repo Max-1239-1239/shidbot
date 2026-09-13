@@ -16,6 +16,7 @@ pub struct Config {
     bot_admins: Vec<serenity::UserId>, // 5
     custom_alert_target_channel: (u64, u64), // 6 | Format: (GuildId, ChannelId)
     shidbot_alert_target_channel: (u64, u64, u64), // 7 | Change to an invalid ID to disable shidbot alert (GuildId, Channelid, RoleId)
+    startup_run: bool // 8
 }
 pub enum ConfigOption {
     LunkoChance(u64),
@@ -26,10 +27,11 @@ pub enum ConfigOption {
     BotAdmins(Vec<serenity::UserId>),
     CustomAlertTargetChannel(u64, u64),
     ShidbotAlertTargetChannel(u64, u64, u64),
+    StartupRun(bool),
 }
 
 pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read a value from config files, return value needs to be unwrapped using a match statement
-    let json_data = fs::read_to_string("config.json")?;
+    let json_data = fs::read_to_string("dependencies/data/config.json")?;
     let current_read: Config = serde_json::from_str(&json_data)?;
     match field { // this matches the field argument to the desired field and returns the desired data
         0 => {
@@ -56,6 +58,9 @@ pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read 
         7 => {
             return Ok(ConfigOption::ShidbotAlertTargetChannel(current_read.shidbot_alert_target_channel.0 , current_read.shidbot_alert_target_channel.1, current_read.shidbot_alert_target_channel.2));
         },
+        8 => {
+            return Ok(ConfigOption::StartupRun(current_read.startup_run));
+        }
         _ => {
             panic!("Field argument out of bounds.");
         }
@@ -63,7 +68,7 @@ pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read 
 }
 
 pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used to edit config files
-    let json_data = fs::read_to_string("config.json")?;
+    let json_data = fs::read_to_string("dependencies/data/config.json")?;
     let mut current_read: Config = serde_json::from_str(&json_data)?;
     match new_value { // matches the input argument to type, edits the read data to the new value, and saves it
         ConfigOption::LunkoChance(chance) => {current_read.lunko_chance = chance},
@@ -74,15 +79,16 @@ pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used
         ConfigOption::BotAdmins(user_ids) => {current_read.bot_admins = user_ids},
         ConfigOption::CustomAlertTargetChannel(guild_id, channel_id) => {current_read.custom_alert_target_channel = (guild_id, channel_id)},
         ConfigOption::ShidbotAlertTargetChannel(guild_id, channel_id, role_id) => {current_read.shidbot_alert_target_channel = (guild_id, channel_id, role_id)},
+        ConfigOption::StartupRun(active ) => {current_read.startup_run = active},
     }
     let json_data = serde_json::to_string_pretty(&current_read).unwrap();
-    let mut file = File::create("config.json").await?;
+    let mut file = File::create("dependencies/data/config.json").await?;
     file.write_all(json_data.as_bytes()).await?;
     Ok(())
 }
 
 pub async fn config_setup() -> Result<(), Error> { // Runs at startup if there's no existing config file, makes one with default values
-    let mut file = File::create("config.json").await?;
+    let mut file = File::create("dependencies/data/config.json").await?;
     let config_file = Config {
         lunko_chance: 100,
         mute_list: Vec::new(),
@@ -92,6 +98,7 @@ pub async fn config_setup() -> Result<(), Error> { // Runs at startup if there's
         bot_admins: Vec::new(),
         custom_alert_target_channel: (0, 0), // 0 is not a possible guild/channel/role/user/etc ID, so it effectively disables both features
         shidbot_alert_target_channel: (0, 0, 0), 
+        startup_run: false,
     };
     let json_data = serde_json::to_string_pretty(&config_file).unwrap();
     file.write_all(json_data.as_bytes()).await?;

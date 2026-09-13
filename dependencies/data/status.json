@@ -1,0 +1,50 @@
+{
+  "normal_lunko_status": [
+    "[lunko cat stares at you]",
+    "[lunko cat stares blankly]",
+    "[lunko cat sneezes]",
+    "[lunko cat is staring at a bug]",
+    "[lunko cat is sleeping]",
+    "[lunko cat yawns. he is sleepy]",
+    "[lunko cat is playing with a bug. the bug's name is steve]",
+    "[steve and lunko cat are playing chess]",
+    "[lunko cat and steve are now friends]",
+    "[lunko cat is here]",
+    "[lunko cat is levitating a few inches off the ground]",
+    "[lunko cat is magnetizing a paperclip]",
+    "[lunko cat is staring out the window]",
+    "[lunko cat is basking in the sunlight]",
+    "[lunko cat is shedding]",
+    "[lunko cat is grooming himself]",
+    "[lunko cat sniffs the air]",
+    "[lunko cat notices you. he blinks hello]",
+    "[lunko cat is playing with his favorite toy, a blue orb]",
+    "[you reach out to pet lunko cat. lunko cat bunts his head against your hand and purrs]",
+    "[lunko cat is sleeping. someone is using him to charge their phone]",
+    "[lunko cat is awake now]",
+    "[lunko cat stares down at you from atop the lab refrigerator]",
+    "[lunko cat is happy to see you]",
+    "[lunko cat used magnet rise! he is now floating about 4 inches off the ground]",
+    "[lunko cat used yawn. he is very sleepy]",
+    "[lunko cat is levitating a paperclip using the power of his mind]",
+    "[lunko cat is thinking]",
+    "[lunko cat is struggling to find a good FM radio signal]"
+  ],
+  "chris_nylon_lunko_status": [
+    "[lunko cat growls]",
+    "[lunko cat turns away. he is unhappy]",
+    "[lunko cat is about to demagnetize your credit card]",
+    "[lunko cat is visibly upset]"
+  ],
+  "tech_connections_lunko_status": [
+    "[lunko cat appears to be interested in your smartphone]",
+    "[lunko cat heard Alec Watson's voice and is now very interested in what you are watching]",
+    "[lunko cat is learning about latent heat and the refrigeration cycle]",
+    "[lunko cat is watching a strange man talk about how pinball tables work]"
+  ],
+  "dankpods_lunko_status": [
+    "[lunko cat's ears perk up]",
+    "[lunko cat is listening to lemon demon on his iPod]",
+    "[lunko cat is listening to 91.7 WVXU over FM radio]"
+  ]
+}
