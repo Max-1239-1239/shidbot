@@ -19,7 +19,7 @@ I don't provide compiled binaries, so you'll need to compile it yourself. The ea
 
 ## Step 3: Setting Shidbot Up
 
-Once you've built it, there should be a folder called "target" in Shidbot's directory. In this folder, you should find a folder called "release" (or the name of your target platform, if cross-conpiling). In here, there should be an executable. Put this wherever you want, then put the "dependancies" folder from the repository in the same directory. Finally, make a new file in the "data" folder witin called "token.txt". Paste your bot token in this file, make sure there's no whitespace at the beginning or end, then save it.  
+Once you've built it, there should be a folder called "target" in Shidbot's directory. In this folder, you should find a folder called "release" (or the name of your target platform, if cross-compiling). In here, there should be an executable. Put this wherever you want, then put the "dependancies" folder from the repository in the same directory. Finally, make a new file in the "data" folder witin called "token.txt". Paste your bot token in this file, make sure there's no whitespace at the beginning or end, then save it.  
   
 This is all you need! Run the script and your bot should go online. If it doesn't, run the script in a terminal to catch errors.
 
