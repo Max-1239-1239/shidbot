@@ -122,7 +122,7 @@ async fn main() {
         })
         .options(options)
         .build();
-    let config_file_check = fs::read("dependancies/data/config.json").await; 
+    let config_file_check = fs::read("dependencies/data/config.json").await; 
     match config_file_check {
         Ok(_) => {} // File exists, pass
         Err(_) => { // File does not exist, make one w/ default values
@@ -131,7 +131,7 @@ async fn main() {
     }
     let _ = config_access::config_edit(ConfigOption::StartupRun(false)).await;
     let mut token = String::new();
-    let _ = TokenFile::open("dependancies/data/token.txt").unwrap().read_to_string(&mut token); // Grabs token from file & writes it to the token variable
+    let _ = TokenFile::open("dependencies/data/token.txt").unwrap().read_to_string(&mut token); // Grabs token from file & writes it to the token variable
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 

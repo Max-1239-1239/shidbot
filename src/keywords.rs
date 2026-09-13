@@ -63,14 +63,14 @@ pub async fn lunko_spawn(
     };
     if rand::thread_rng().gen_range(0..=lunko_chance) == 1 {
         if rand::thread_rng().gen_range(0..=15) == 10 {
-            let file = File::open("dependancies/shinylunko.png").await?;
+            let file = File::open("dependencies/shinylunko.png").await?;
             let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
             let content = CreateMessage::default()
                 .add_file(attachment);
             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
             guild.send_message(ctx.http.clone(), content).await?;
         } else {
-            let file = File::open("dependancies/lunkoembed.png").await?;
+            let file = File::open("dependencies/lunkoembed.png").await?;
             let attachment = CreateAttachment::file(&file, "lunkoembed.png").await?;
             let content = CreateMessage::default()
                 .content(utils::get_status(0))

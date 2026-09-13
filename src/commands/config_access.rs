@@ -31,7 +31,7 @@ pub enum ConfigOption {
 }
 
 pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read a value from config files, return value needs to be unwrapped using a match statement
-    let json_data = fs::read_to_string("dependancies/data/config.json")?;
+    let json_data = fs::read_to_string("dependencies/data/config.json")?;
     let current_read: Config = serde_json::from_str(&json_data)?;
     match field { // this matches the field argument to the desired field and returns the desired data
         0 => {
@@ -68,7 +68,7 @@ pub fn config_read(field: u8) -> Result<ConfigOption , Error> { // Used to read 
 }
 
 pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used to edit config files
-    let json_data = fs::read_to_string("dependancies/data/config.json")?;
+    let json_data = fs::read_to_string("dependencies/data/config.json")?;
     let mut current_read: Config = serde_json::from_str(&json_data)?;
     match new_value { // matches the input argument to type, edits the read data to the new value, and saves it
         ConfigOption::LunkoChance(chance) => {current_read.lunko_chance = chance},
@@ -82,13 +82,13 @@ pub async fn config_edit(new_value: ConfigOption) -> Result<(), Error> { // Used
         ConfigOption::StartupRun(active ) => {current_read.startup_run = active},
     }
     let json_data = serde_json::to_string_pretty(&current_read).unwrap();
-    let mut file = File::create("dependancies/data/config.json").await?;
+    let mut file = File::create("dependencies/data/config.json").await?;
     file.write_all(json_data.as_bytes()).await?;
     Ok(())
 }
 
 pub async fn config_setup() -> Result<(), Error> { // Runs at startup if there's no existing config file, makes one with default values
-    let mut file = File::create("dependancies/data/config.json").await?;
+    let mut file = File::create("dependencies/data/config.json").await?;
     let config_file = Config {
         lunko_chance: 100,
         mute_list: Vec::new(),

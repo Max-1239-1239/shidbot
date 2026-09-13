@@ -1,4 +1,4 @@
 /target
-dependancies/data/bot.log
-dependancies/data/config.json
-dependancies/data/token.txt
+dependencies/data/bot.log
+dependencies/data/config.json
+dependencies/data/token.txt

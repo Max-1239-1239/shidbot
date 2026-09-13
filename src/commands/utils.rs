@@ -55,7 +55,7 @@ pub async fn startup(
     for emoji in APPLICATION_EMOJI_NAME_LIST {
         if !existing_emoji_list.iter().any(|name| name == emoji) { // If emoji doesn't exist, shidbot will make it
             let attachment = {
-                let path = format!("dependancies/emojis/{}.png", emoji);
+                let path = format!("dependencies/emojis/{}.png", emoji);
                 let file = tokio::fs::read(path).await?;
                 let base64_encoded_file = general_purpose::STANDARD.encode(file);
                 let data_uri_string = format!("data:image/png;base64,{}", base64_encoded_file); 
@@ -125,7 +125,7 @@ pub async fn random_image(
     pokemon: String, // valid: shinx, jolt
 ) -> Result<CreateReply , Error> {
     let mut search = {
-        let files = std::fs::read_dir(format!("dependancies/{}", pokemon))?;
+        let files = std::fs::read_dir(format!("dependencies/{}", pokemon))?;
         let mut file_paths = Vec::new();
         for entry in files {
             file_paths.push(entry.unwrap().path());
@@ -172,7 +172,7 @@ pub async fn add_to_collection(
                     return Ok(());
                 }
             };
-            let file_path = format!("dependancies/{}/{}", pokemon.clone(), &attachment.filename);
+            let file_path = format!("dependencies/{}/{}", pokemon.clone(), &attachment.filename);
             let mut file = File::create(file_path.clone()).await?;
             let _ = file.write_all(&content).await; 
             let log_msg = format!("New image added to the {} folder by {}, path is: {}", pokemon.clone(), ctx.author(), file_path);
@@ -186,7 +186,7 @@ pub async fn add_to_collection(
 pub fn get_status(
     status_type: usize, // desired response, index starts at 0, in order of order in status.json
 ) -> String {
-    let json_data = fs::read_to_string("dependancies/data/status.json").unwrap();
+    let json_data = fs::read_to_string("dependencies/data/status.json").unwrap();
     let current_read: StatusOptions = serde_json::from_str(&json_data).expect("failed to get json data");
     let mut target_list = match status_type {
         1 => {

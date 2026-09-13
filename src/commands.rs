@@ -51,8 +51,8 @@ pub async fn ping(
 pub async fn lunko(
     ctx: Context<'_>,
 ) -> Result<(), Error> {
-    let file = File::open("dependancies/lunkoembed.png").await?;
-    let attachment = CreateAttachment::file(&file, "dependancies/lunkoembed.png").await?;
+    let file = File::open("dependencies/lunkoembed.png").await?;
+    let attachment = CreateAttachment::file(&file, "dependencies/lunkoembed.png").await?;
     let content = CreateReply::default()
         .content(utils::get_status(0))
         .attachment(attachment);
