@@ -404,59 +404,6 @@ pub async fn scramble(
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn inactivityalert( // this command is questionably functional, likely similar issues to /customalert
-    ctx: Context<'_>,
-    message: String,
-    duration_minutes: u32,
-    cancel: Option<bool>
-) -> Result<(), Error> {
-    let ref_guild = ctx.guild_channel().await.unwrap();
-    let mut elapsed_min: u32 = 0;
-    if cancel == None {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
-    } else if cancel.unwrap() {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(false)).await?;
-    } else {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
-    };
-    let last_id = ref_guild.last_message_id.unwrap(); 
-    loop {
-        task::sleep(Duration::from_mins(2)).await; 
-        let active_status = {
-            match config_access::config_read(4).unwrap() {
-                ConfigOption::InactivityAlertActive(x) => {
-                    let current = x;
-                    current
-                },
-                _ => {
-                    let current: bool = false;
-                    current
-                },
-            }
-        };
-        if active_status == false {
-            break;
-        }
-        let ref_guild = ctx.guild_channel().await.unwrap();
-        if ref_guild.last_message_id.unwrap() == last_id { 
-            elapsed_min = elapsed_min + 2;
-        } else {
-            ctx.rerun().await?;
-            break;
-        };
-        if elapsed_min >= duration_minutes { 
-            ref_guild.say(&ctx.http(), &message).await?;
-            elapsed_min = 0;
-            continue;
-        } else {
-            continue;
-        };
-    }
-    Ok(())
-}
-
-
 /// Shinx
 #[poise::command(slash_command, prefix_command)] 
 pub async fn shinx(

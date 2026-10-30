@@ -79,7 +79,6 @@ async fn main() {
             commands::scramble(),
             commands::reverse(),
             commands::customalert(),
-            commands::inactivityalert(),
             commands::shinx(),
             commands::shinx_collection(),
             commands::unshid(),
@@ -192,7 +191,7 @@ async fn event_handler(
             };
             if !muted_status && !current_list.contains(&new_message.author.id) {
                 keywords::lunko_spawn(ctx.clone(), new_message.clone()).await?;
-                if message_content.contains("lunk") {
+                if message_content.contains("lunk") && !message_content.contains("!lunko") {
                     keywords::lunk_keyword(ctx.clone(), new_message.clone()).await?;
                     if !&new_message.author.bot {
                         keywords::lunko_status_response(0, ctx.clone(), new_message.clone()).await?;
