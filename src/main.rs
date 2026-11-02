@@ -84,6 +84,7 @@ async fn main() {
             commands::unshid(),
             commands::jolteon(),
             commands::jolteon_collection(),
+            commands::splatoonmaps(),
         ], 
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some("!".into()),

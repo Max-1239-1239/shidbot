@@ -6,11 +6,12 @@ use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
 use rand::Rng;
-use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
+use ::serenity::{all::Colour, builder::{CreateEmbedFooter, GetMessages}, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
 use tokio::fs::File;
 use std::fmt::Write;
 use async_std::task::{self};
 use std::time::{Duration, SystemTime};
+use reqwest;
 pub mod log;
 pub mod config_access;
 pub mod utils;
@@ -424,7 +425,7 @@ pub async fn shinx_collection(
     Ok(())
 }
 
-/// Purge shidbot messages
+/// Purge shidbot messages 
 #[poise::command(slash_command, prefix_command, guild_only)] 
 pub async fn unshid(
     ctx: Context<'_>,
@@ -469,5 +470,54 @@ pub async fn jolteon_collection(
     msg: serenity::Message
 ) -> Result<(), Error> {
     utils::add_to_collection("jolt".to_owned(), ctx, msg).await?;
+    Ok(())
+}
+
+/// Get Splatoon 3 map data
+#[poise::command(slash_command, prefix_command)]
+pub async fn splatoonmaps(
+    ctx: Context<'_>,
+    time_from_now: f32
+) -> Result<(), Error> {
+    let resp = reqwest::get("https://splatoon3.ink/data/schedules.json")
+    .await?
+    .json::<serde_json::Value>()
+    .await?;
+    let reply = {
+        let node = (time_from_now / 2.0).round() as usize; 
+        let raw_turf_data = resp["data"]["regularSchedules"]["nodes"][node]["regularMatchSetting"].clone();
+        if raw_turf_data["vsStages"][0]["name"].to_string() == "null" {
+            let reply = CreateReply::default()
+                .content("couldn't find the stages :( are you looking too far ahead?");
+            ctx.send(reply).await?;
+            return Ok(());
+        }
+        let raw_open_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][1].clone();
+        let raw_series_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][0].clone();
+        let title_data = format!("Rotations in {} hours:", time_from_now);
+        let turf_data = format!("{}\n{}", raw_turf_data["vsStages"][0]["name"], raw_turf_data["vsStages"][1]["name"]);
+        let open_rotation = raw_open_data["vsRule"]["name"].to_string();
+        let open_data = format!("{}\n{}", raw_open_data["vsStages"][0]["name"], raw_open_data["vsStages"][1]["name"]);
+        let series_rotation = raw_series_data["vsRule"]["name"].to_string();
+        let series_data = format!("{}\n{}", raw_series_data["vsStages"][0]["name"], raw_series_data["vsStages"][1]["name"]);
+        let footer = CreateEmbedFooter::new("Data provided by splatoon3.ink");
+        let embed = CreateEmbed::new()
+            .title(title_data)
+            .footer(footer)
+            .field("Turf War", turf_data, true)
+            .field(open_rotation, open_data, true)
+            .field(series_rotation, series_data, true)
+            .color(Colour::BLUE);
+        let reply = CreateReply::default()
+            .embed(embed)
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_turf_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_open_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_series_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_turf_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_open_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &raw_series_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."));
+        reply
+        };
+    ctx.send(reply).await?;
     Ok(())
 }
