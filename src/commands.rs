@@ -6,7 +6,7 @@ use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
 use rand::Rng;
-use ::serenity::{all::Colour, builder::{CreateEmbedFooter, GetMessages}, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
+use ::serenity::{all::Colour, builder::{CreateEmbedFooter, GetMessages}, model::{Timestamp, guild::PartialGuild, id::{ChannelId, UserId}}};
 use tokio::fs::File;
 use std::fmt::Write;
 use async_std::task::{self};
@@ -494,21 +494,25 @@ pub async fn splatoonmaps(
         }
         let raw_open_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][1].clone();
         let raw_series_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][0].clone();
-        let title_data = format!("Rotations in {} hours:", time_from_now);
-        let turf_data = format!("{}\n{}", raw_turf_data["vsStages"][0]["name"], raw_turf_data["vsStages"][1]["name"]);
-        let open_rotation = raw_open_data["vsRule"]["name"].to_string();
-        let open_data = format!("{}\n{}", raw_open_data["vsStages"][0]["name"], raw_open_data["vsStages"][1]["name"]);
-        let series_rotation = raw_series_data["vsRule"]["name"].to_string();
-        let series_data = format!("{}\n{}", raw_series_data["vsStages"][0]["name"], raw_series_data["vsStages"][1]["name"]);
+        let timestamp = {
+            let timestamp = Timestamp::now();
+            let md_timestamp = format!("<t:{}:R>", timestamp.timestamp() as usize + (time_from_now * 3600.0) as usize).to_string();
+            md_timestamp
+        };
+        let title_data = format!("Rotations {}:", timestamp);
+        let turf_data = format!("{}\n{}", raw_turf_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_turf_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let open_data = format!("{}\n{}", raw_open_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_open_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let series_data = format!("{}\n{}", raw_series_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_series_data["vsStages"][1]["name"].to_string().replace("\"", ""));
         let footer = CreateEmbedFooter::new("Data provided by splatoon3.ink");
+        let open_title = format!("Open - {}", raw_open_data["vsRule"]["name"].to_string().replace("\"", ""));
+        let series_title = format!("Series - {}",  raw_series_data["vsRule"]["name"].to_string().replace("\"", ""));
         let embed = CreateEmbed::new()
             .title(title_data)
             .footer(footer)
             .field("Turf War", turf_data, true)
-            .field(open_rotation, open_data, true)
-            .field(series_rotation, series_data, true)
+            .field(open_title, open_data, true)
+            .field(series_title, series_data, true)
             .color(Colour::PURPLE);
-
         let raw_url_list = [raw_turf_data["vsStages"][0]["image"]["url"].to_string(), raw_open_data["vsStages"][0]["image"]["url"].to_string(), raw_series_data["vsStages"][0]["image"]["url"].to_string(),
             raw_turf_data["vsStages"][1]["image"]["url"].to_string(), raw_open_data["vsStages"][1]["image"]["url"].to_string(), raw_series_data["vsStages"][1]["image"]["url"].to_string()];
         let mut url_list = vec![];
@@ -517,7 +521,6 @@ pub async fn splatoonmaps(
             let clean_url = partial_clean_url.replace("\"", "");
             url_list.push(clean_url);
         }
-        println!("{:?}",  url_list[0]);
         let reply = CreateReply::default()
             .embed(embed)
             .attachment((CreateAttachment::url(&ctx.http(), &url_list[0])).await.expect("Failed to get image."))
