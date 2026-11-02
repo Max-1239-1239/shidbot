@@ -479,17 +479,6 @@ pub async fn splatoonmaps(
     ctx: Context<'_>,
     time_from_now: f32
 ) -> Result<(), Error> {
-    {
-        let mut cooldown_tracker = ctx.command().cooldowns.lock().unwrap();
-        let mut cooldown_durations = poise::CooldownConfig::default();
-        cooldown_durations.global = Some(std::time::Duration::from_secs(30));
-        match cooldown_tracker.remaining_cooldown(ctx.cooldown_context(), &cooldown_durations) {
-            Some(remaining) => {
-                return Err(format!("this command is on cooldown, wait {} seconds", remaining.as_secs()).into())
-            }
-            None => cooldown_tracker.start_cooldown(ctx.cooldown_context()),
-        }
-    };
     let resp = reqwest::get("https://splatoon3.ink/data/schedules.json")
     .await?
     .json::<serde_json::Value>()
@@ -519,14 +508,24 @@ pub async fn splatoonmaps(
             .field(open_rotation, open_data, true)
             .field(series_rotation, series_data, true)
             .color(Colour::PURPLE);
+
+        let raw_url_list = [raw_turf_data["vsStages"][0]["image"]["url"].to_string(), raw_open_data["vsStages"][0]["image"]["url"].to_string(), raw_series_data["vsStages"][0]["image"]["url"].to_string(),
+            raw_turf_data["vsStages"][1]["image"]["url"].to_string(), raw_open_data["vsStages"][1]["image"]["url"].to_string(), raw_series_data["vsStages"][1]["image"]["url"].to_string()];
+        let mut url_list = vec![];
+        for url in raw_url_list {
+            let partial_clean_url = url.replace("\\", "");
+            let clean_url = partial_clean_url.replace("\"", "");
+            url_list.push(clean_url);
+        }
+        println!("{:?}",  url_list[0]);
         let reply = CreateReply::default()
             .embed(embed)
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_turf_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_open_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_series_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_turf_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."))
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_open_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."))
-            .attachment((CreateAttachment::url(&ctx.http(), &raw_series_data["vsStages"][1]["image"]["url"].to_string())).await.expect("Failed to get image."));
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[0])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[1])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[2])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[3])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[4])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[5])).await.expect("Failed to get image."));
         reply
         };
     ctx.send(reply).await?;
