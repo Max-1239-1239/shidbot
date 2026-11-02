@@ -492,6 +492,7 @@ pub async fn splatoonmaps(
             ctx.send(reply).await?;
             return Ok(());
         }
+        let raw_x_data = resp["data"]["xSchedules"]["nodes"][node]["xMatchSetting"].clone();
         let raw_open_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][1].clone();
         let raw_series_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][0].clone();
         let timestamp = {
@@ -503,15 +504,18 @@ pub async fn splatoonmaps(
         let turf_data = format!("{}\n{}", raw_turf_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_turf_data["vsStages"][1]["name"].to_string().replace("\"", ""));
         let open_data = format!("{}\n{}", raw_open_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_open_data["vsStages"][1]["name"].to_string().replace("\"", ""));
         let series_data = format!("{}\n{}", raw_series_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_series_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let x_data = format!("{}\n{}", raw_x_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_x_data["vsStages"][1]["name"].to_string().replace("\"", ""));
         let footer = CreateEmbedFooter::new("Data provided by splatoon3.ink");
         let open_title = format!("Open - {}", raw_open_data["vsRule"]["name"].to_string().replace("\"", ""));
         let series_title = format!("Series - {}",  raw_series_data["vsRule"]["name"].to_string().replace("\"", ""));
+        let x_title = format!("X Battles - {}", raw_x_data["vsRule"]["name"].to_string().replace("\"", ""));
         let embed = CreateEmbed::new()
             .title(title_data)
             .footer(footer)
             .field("Turf War", turf_data, true)
             .field(open_title, open_data, true)
             .field(series_title, series_data, true)
+            .field(x_title, x_data, true)
             .color(Colour::PURPLE);
         let raw_url_list = [raw_turf_data["vsStages"][0]["image"]["url"].to_string(), raw_open_data["vsStages"][0]["image"]["url"].to_string(), raw_series_data["vsStages"][0]["image"]["url"].to_string(),
             raw_turf_data["vsStages"][1]["image"]["url"].to_string(), raw_open_data["vsStages"][1]["image"]["url"].to_string(), raw_series_data["vsStages"][1]["image"]["url"].to_string()];
