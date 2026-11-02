@@ -66,6 +66,7 @@ pub async fn lunko_spawn(
             let file = File::open("dependencies/shinylunko.png").await?;
             let attachment = CreateAttachment::file(&file, "shinylunko.png").await?;
             let content = CreateMessage::default()
+                .content(utils::get_status(0))
                 .add_file(attachment);
             let guild = new_message.channel_id.to_channel(ctx.http.clone()).await.unwrap().guild().unwrap();
             guild.send_message(ctx.http.clone(), content).await?;

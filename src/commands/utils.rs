@@ -4,7 +4,7 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use poise::serenity_prelude as serenity;
 use serenity::CreateAttachment;
 use poise::CreateReply;
-use rand::{Rng, seq::SliceRandom};
+use rand::Rng;
 use crate::{Context, Error, commands::{config_access::{self, ConfigOption}, log}};
 use base64::{Engine, engine::general_purpose};
 use serde::{Deserialize, Serialize};
@@ -124,7 +124,7 @@ pub async fn startup(
 pub async fn random_image(
     pokemon: String, // valid: shinx, jolt
 ) -> Result<CreateReply , Error> {
-    let mut search = {
+    let search = {
         let files = std::fs::read_dir(format!("dependencies/{}", pokemon))?;
         let mut file_paths = Vec::new();
         for entry in files {
@@ -133,13 +133,9 @@ pub async fn random_image(
         file_paths
     };
     if search.len() > 0 {
-        let shuffled_mons = {
-        let mut rng = rand::thread_rng();
-            search.shuffle(&mut rng);
-            search.clone()
-        };
+        let selected_mon = search[rand::thread_rng().gen_range(0..search.len())].clone();
         let attachment = {
-            let mon = shuffled_mons[0].clone().into_os_string().into_string().unwrap();
+            let mon = selected_mon.clone().into_os_string().into_string().unwrap();
             let file = File::open(&mon).await.expect("File not found.");
             let attachment = CreateAttachment::file(&file, &mon).await; 
             attachment    
@@ -188,7 +184,7 @@ pub fn get_status(
 ) -> String {
     let json_data = fs::read_to_string("dependencies/data/status.json").unwrap();
     let current_read: StatusOptions = serde_json::from_str(&json_data).expect("failed to get json data");
-    let mut target_list = match status_type {
+    let target_list = match status_type {
         1 => {
             current_read.chris_nylon_lunko_status
         }, // chris nylon
@@ -202,11 +198,7 @@ pub fn get_status(
             current_read.normal_lunko_status
         }
     };
-    let random_status = {
-        let mut rng = rand::thread_rng();
-        target_list.shuffle(&mut rng);
-        target_list[0].clone()
-    };
+    let random_status = target_list[rand::thread_rng().gen_range(0..target_list.len())].clone();
     return random_status;
 }
 

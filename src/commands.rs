@@ -6,11 +6,12 @@ use poise::CreateReply;
 use serenity::CreateEmbed;
 use poise::serenity_prelude as serenity;
 use rand::Rng;
-use ::serenity::{all::Colour, builder::GetMessages, model::{guild::PartialGuild, id::{ChannelId, UserId}}};
+use ::serenity::{all::Colour, builder::{CreateEmbedFooter, GetMessages}, model::{Timestamp, guild::PartialGuild, id::{ChannelId, UserId}}};
 use tokio::fs::File;
 use std::fmt::Write;
 use async_std::task::{self};
 use std::time::{Duration, SystemTime};
+use reqwest;
 pub mod log;
 pub mod config_access;
 pub mod utils;
@@ -404,59 +405,6 @@ pub async fn scramble(
     Ok(())
 }
 
-#[poise::command(prefix_command, slash_command, guild_only)]
-pub async fn inactivityalert( // this command is questionably functional, likely similar issues to /customalert
-    ctx: Context<'_>,
-    message: String,
-    duration_minutes: u32,
-    cancel: Option<bool>
-) -> Result<(), Error> {
-    let ref_guild = ctx.guild_channel().await.unwrap();
-    let mut elapsed_min: u32 = 0;
-    if cancel == None {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
-    } else if cancel.unwrap() {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(false)).await?;
-    } else {
-        config_access::config_edit(ConfigOption::InactivityAlertActive(true)).await?;
-    };
-    let last_id = ref_guild.last_message_id.unwrap(); 
-    loop {
-        task::sleep(Duration::from_mins(2)).await; 
-        let active_status = {
-            match config_access::config_read(4).unwrap() {
-                ConfigOption::InactivityAlertActive(x) => {
-                    let current = x;
-                    current
-                },
-                _ => {
-                    let current: bool = false;
-                    current
-                },
-            }
-        };
-        if active_status == false {
-            break;
-        }
-        let ref_guild = ctx.guild_channel().await.unwrap();
-        if ref_guild.last_message_id.unwrap() == last_id { 
-            elapsed_min = elapsed_min + 2;
-        } else {
-            ctx.rerun().await?;
-            break;
-        };
-        if elapsed_min >= duration_minutes { 
-            ref_guild.say(&ctx.http(), &message).await?;
-            elapsed_min = 0;
-            continue;
-        } else {
-            continue;
-        };
-    }
-    Ok(())
-}
-
-
 /// Shinx
 #[poise::command(slash_command, prefix_command)] 
 pub async fn shinx(
@@ -477,7 +425,7 @@ pub async fn shinx_collection(
     Ok(())
 }
 
-/// Purge shidbot messages
+/// Purge shidbot messages 
 #[poise::command(slash_command, prefix_command, guild_only)] 
 pub async fn unshid(
     ctx: Context<'_>,
@@ -522,5 +470,71 @@ pub async fn jolteon_collection(
     msg: serenity::Message
 ) -> Result<(), Error> {
     utils::add_to_collection("jolt".to_owned(), ctx, msg).await?;
+    Ok(())
+}
+
+/// Get Splatoon 3 map data
+#[poise::command(slash_command, prefix_command)]
+pub async fn splatoonmaps(
+    ctx: Context<'_>,
+    time_from_now: f32
+) -> Result<(), Error> {
+    let resp = reqwest::get("https://splatoon3.ink/data/schedules.json")
+    .await?
+    .json::<serde_json::Value>()
+    .await?;
+    let reply = {
+        let node = (time_from_now / 2.0).round() as usize; 
+        let raw_turf_data = resp["data"]["regularSchedules"]["nodes"][node]["regularMatchSetting"].clone();
+        if raw_turf_data["vsStages"][0]["name"].to_string() == "null" {
+            let reply = CreateReply::default()
+                .content("couldn't find the stages :( are you looking too far ahead?");
+            ctx.send(reply).await?;
+            return Ok(());
+        }
+        let raw_x_data = resp["data"]["xSchedules"]["nodes"][node]["xMatchSetting"].clone();
+        let raw_open_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][1].clone();
+        let raw_series_data = resp["data"]["bankaraSchedules"]["nodes"][node]["bankaraMatchSettings"][0].clone();
+        let timestamp = {
+            let timestamp = Timestamp::now();
+            let md_timestamp = format!("<t:{}:R>", timestamp.timestamp() as usize + (time_from_now * 3600.0) as usize).to_string();
+            md_timestamp
+        };
+        let title_data = format!("Rotations {}:", timestamp);
+        let turf_data = format!("{}\n{}", raw_turf_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_turf_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let open_data = format!("{}\n{}", raw_open_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_open_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let series_data = format!("{}\n{}", raw_series_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_series_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let x_data = format!("{}\n{}", raw_x_data["vsStages"][0]["name"].to_string().replace("\"", ""), raw_x_data["vsStages"][1]["name"].to_string().replace("\"", ""));
+        let footer = CreateEmbedFooter::new("Data provided by splatoon3.ink");
+        let open_title = format!("Open - {}", raw_open_data["vsRule"]["name"].to_string().replace("\"", ""));
+        let series_title = format!("Series - {}",  raw_series_data["vsRule"]["name"].to_string().replace("\"", ""));
+        let x_title = format!("X Battles - {}", raw_x_data["vsRule"]["name"].to_string().replace("\"", ""));
+        let embed = CreateEmbed::new()
+            .title(title_data)
+            .footer(footer)
+            .field("Turf War", turf_data, true)
+            .field(open_title, open_data, true)
+            .field(series_title, series_data, true)
+            .field(x_title, x_data, true)
+            .color(Colour::PURPLE);
+        let raw_url_list = [raw_turf_data["vsStages"][0]["image"]["url"].to_string(), raw_open_data["vsStages"][0]["image"]["url"].to_string(), raw_series_data["vsStages"][0]["image"]["url"].to_string(),
+            raw_turf_data["vsStages"][1]["image"]["url"].to_string(), raw_open_data["vsStages"][1]["image"]["url"].to_string(), raw_series_data["vsStages"][1]["image"]["url"].to_string()];
+        let mut url_list = vec![];
+        for url in raw_url_list {
+            let partial_clean_url = url.replace("\\", "");
+            let clean_url = partial_clean_url.replace("\"", "");
+            url_list.push(clean_url);
+        }
+        let reply = CreateReply::default()
+            .embed(embed)
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[0])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[1])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[2])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[3])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[4])).await.expect("Failed to get image."))
+            .attachment((CreateAttachment::url(&ctx.http(), &url_list[5])).await.expect("Failed to get image."));
+        reply
+        };
+    ctx.send(reply).await?;
     Ok(())
 }

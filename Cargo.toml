@@ -1,6 +1,6 @@
 [package]
 name = "Shidbot"
-version = "2.7.0"
+version = "2.8.0"
 edition = "2024"
 
 [dependencies]
@@ -17,5 +17,6 @@ chrono = "0.4.44"
 time = {version = "0.3.47", features = ["std", "formatting"]}
 base64 = "0.22.1"
 caseless = "0.2.2"
+reqwest = { version = "0.13.5", features = ["json", "blocking"] }
 
 
