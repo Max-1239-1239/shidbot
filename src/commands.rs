@@ -518,7 +518,7 @@ pub async fn splatoonmaps(
             .field("Turf War", turf_data, true)
             .field(open_rotation, open_data, true)
             .field(series_rotation, series_data, true)
-            .color(Colour::BLUE);
+            .color(Colour::PURPLE);
         let reply = CreateReply::default()
             .embed(embed)
             .attachment((CreateAttachment::url(&ctx.http(), &raw_turf_data["vsStages"][0]["image"]["url"].to_string())).await.expect("Failed to get image."))
