@@ -479,6 +479,17 @@ pub async fn splatoonmaps(
     ctx: Context<'_>,
     time_from_now: f32
 ) -> Result<(), Error> {
+    {
+        let mut cooldown_tracker = ctx.command().cooldowns.lock().unwrap();
+        let mut cooldown_durations = poise::CooldownConfig::default();
+        cooldown_durations.global = Some(std::time::Duration::from_secs(30));
+        match cooldown_tracker.remaining_cooldown(ctx.cooldown_context(), &cooldown_durations) {
+            Some(remaining) => {
+                return Err(format!("this command is on cooldown, wait {} seconds", remaining.as_secs()).into())
+            }
+            None => cooldown_tracker.start_cooldown(ctx.cooldown_context()),
+        }
+    };
     let resp = reqwest::get("https://splatoon3.ink/data/schedules.json")
     .await?
     .json::<serde_json::Value>()
